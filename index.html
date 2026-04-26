@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prompt Generator Pro — TikTok Shop | Crie vídeos que vendem</title>
+<meta name="description" content="Gere prompts de vídeo, influencers virtuais e extraia texto de imagens — tudo em uma ferramenta gratuita para TikTok Shop.">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════ TOKENS ═══════════════ */
+:root {
+  --bg:      #03050b;
+  --bg2:     #070b16;
+  --surface: rgba(255,255,255,0.04);
+  --border:  rgba(255,255,255,0.07);
+  --cyan:    #25F4EE;
+  --pink:    #FE2C55;
+  --pink2:   #ff6b8a;
+  --white:   #ffffff;
+  --text:    #d8e0ea;
+  --muted:   #4a5568;
+  --grad:    linear-gradient(135deg,#FE2C55,#25F4EE);
+}
+
+/* ═══════════════ NOISE OVERLAY ═══════════════ */
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* ═══════════════ RESET ═══════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{
+  font-family:'Montserrat',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  overflow-x:hidden;
+  cursor:default;
+}
+
+/* ═══════════════ SCROLLBAR ═══════════════ */
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:linear-gradient(var(--pink),var(--cyan));border-radius:10px;}
+
+/* ═══════════════ CANVAS BG ═══════════════ */
+#bgCanvas{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.7;}
+
+/* ═══════════════ PARTICLES ═══════════════ */
+.particles{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+.pt{position:absolute;border-radius:50%;animation:ptfloat linear infinite;}
+@keyframes ptfloat{
+  0%{transform:translateY(105vh);opacity:0;}
+  8%{opacity:1;}
+  92%{opacity:.5;}
+  100%{transform:translateY(-8vh);opacity:0;}
+}
+
+/* ═══════════════ NAV ═══════════════ */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 clamp(20px,5vw,60px);
+  height:64px;
+  background:rgba(3,5,11,.85);
+  border-bottom:1px solid var(--border);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  animation:navIn .5s ease both;
+}
+@keyframes navIn{from{transform:translateY(-100%);opacity:0;}to{transform:translateY(0);opacity:1;}}
+
+.nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;}
+.nav-logo-text{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.06em;
+  background:linear-gradient(90deg,var(--cyan),#fff 50%,var(--pink));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+
+.nav-links{display:flex;align-items:center;gap:28px;}
+.nav-links a{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted);text-decoration:none;transition:color .2s;}
+.nav-links a:hover{color:var(--cyan);}
+
+.nav-cta{
+  display:flex;align-items:center;gap:7px;
+  padding:9px 22px;border-radius:100px;
+  background:linear-gradient(135deg,var(--pink),#9a0018);
+  color:#fff;font-family:'Montserrat',sans-serif;font-weight:800;
+  font-size:12px;letter-spacing:.06em;text-transform:uppercase;
+  text-decoration:none;transition:all .22s;
+  box-shadow:0 4px 20px rgba(254,44,85,.35);
+}
+.nav-cta:hover{transform:translateY(-1px);box-shadow:0 6px 28px rgba(254,44,85,.5);}
+
+.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:4px;}
+.hamburger span{display:block;width:22px;height:2px;background:var(--text);border-radius:2px;transition:all .25s;}
+
+/* ═══════════════ HERO ═══════════════ */
+.hero{
+  position:relative;z-index:1;
+  min-height:100vh;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  text-align:center;
+  padding:100px clamp(20px,5vw,60px) 60px;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  width: 40%;
+  height: 40%;
+  background: radial-gradient(circle, rgba(37,244,238,0.1) 0%, transparent 70%);
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
+  z-index: -1;
+  filter: blur(80px);
+  animation: auraPulse 8s ease-in-out infinite;
+}
+@keyframes auraPulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+  50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.8; }
+}
+
+.hero-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:7px 18px;border-radius:100px;
+  background:rgba(37,244,238,.07);border:1px solid rgba(37,244,238,.2);
+  font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--cyan);
+  margin-bottom:28px;animation:heroIn .7s ease both .1s;
+}
+.hero-badge .dot{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(.75);}}
+
+.hero h1{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(52px,10vw,110px);
+  letter-spacing:.02em;line-height:.95;
+  color:#fff;
+  animation:heroIn .8s ease both .2s;
+}
+.hero h1 .line-cyan{
+  display:block;
+  background:linear-gradient(90deg,var(--cyan),#a0f9f6);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.hero h1 .line-pink{
+  display:block;
+  background:linear-gradient(90deg,var(--pink),var(--pink2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+
+.hero-sub{
+  max-width:600px;margin:28px auto 0;
+  font-size:clamp(15px,2.2vw,18px);font-weight:500;line-height:1.7;color:var(--muted);
+  letter-spacing: -0.01em;
+  animation:heroIn .8s ease both .3s;
+}
+
+.hero-actions{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center;
+  margin-top:36px;animation:heroIn .8s ease both .4s;
+}
+.btn-hero-main{
+  display:flex;align-items:center;gap:9px;
+  padding:18px 42px;border-radius:100px;
+  background: linear-gradient(135deg, #FE2C55 0%, #ff1a40 50%, #8c0018 100%);
+  background-size: 200% auto;
+  color:#fff;font-weight:900;font-size:14px;letter-spacing:.06em;text-transform:uppercase;
+  text-decoration:none;transition:all .4s;position:relative;overflow:hidden;
+  box-shadow:0 8px 32px rgba(254,44,85,.4), inset 0 2px 4px rgba(255,255,255,0.2);
+}
+.btn-hero-main:hover{
+  transform:translateY(-3px);
+  box-shadow:0 12px 42px rgba(254,44,85,.55), inset 0 2px 4px rgba(255,255,255,0.3);
+  background-position: right center;
+}
+.btn-hero-main::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -150%;
+  width: 50%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  transform: skewX(-20deg);
+  animation: shine 4s infinite;
+}
+@keyframes shine {
+  0% { left: -150%; }
+  20% { left: 150%; }
+  100% { left: 150%; }
+}
+
+.btn-hero-sec{
+  display:flex;align-items:center;gap:8px;
+  padding:15px 28px;border-radius:100px;
+  border:1px solid rgba(37,244,238,.35);background:rgba(37,244,238,.06);
+  color:var(--cyan);font-weight:800;font-size:13px;letter-spacing:.05em;text-transform:uppercase;
+  text-decoration:none;transition:all .3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative; overflow: hidden;
+}
+.btn-hero-sec:hover{
+  background:rgba(37,244,238,.14);
+  border-color:var(--cyan);
+  transform:translateY(-2px);
+  box-shadow: 0 4px 20px rgba(37,244,238,0.2);
+}
+.btn-hero-sec::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(37,244,238,0.1), transparent);
+  transition: left 0.6s ease;
+}
+.btn-hero-sec:hover::before {
+  left: 100%;
+}
+
+/* stats */
+.hero-stats{
+  display:flex;align-items:center;gap:36px;flex-wrap:wrap;justify-content:center;
+  margin-top:52px;animation:heroIn .9s ease both .55s;
+}
+.stat{text-align:center;}
+.stat-num{font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:.04em;
+  background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  filter: drop-shadow(0 0 12px rgba(254,44,85,0.25));
+}
+.stat-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:2px;}
+.stat-divider{width:1px;height:36px;background:var(--border);}
+
+/* hero scroll indicator */
+.scroll-ind{
+  position:absolute;bottom:32px;left:50%;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  animation:heroIn 1s ease both .8s;
+}
+.scroll-ind span{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700;}
+.scroll-line{width:1px;height:32px;background:linear-gradient(var(--pink),transparent);animation:scrollPulse 1.8s ease-in-out infinite;}
+@keyframes scrollPulse{0%,100%{opacity:.3;transform:scaleY(.5) translateY(-8px);}50%{opacity:1;transform:scaleY(1) translateY(0);}}
+
+@keyframes heroIn{from{opacity:0;transform:translateY(24px);}to{opacity:1;transform:translateY(0);}}
+
+/* Neon divider */
+.neon-div{height:1px;background:linear-gradient(90deg,transparent,var(--pink) 30%,var(--cyan) 70%,transparent);opacity:.4;margin:0;}
+
+/* ═══════════════ SECTIONS ═══════════════ */
+section{position:relative;z-index:1;padding:100px clamp(20px,6vw,80px);}
+.section-tag{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:5px 14px;border-radius:100px;
+  background:rgba(254,44,85,.08);border:1px solid rgba(254,44,85,.2);
+  font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--pink);
+  margin-bottom:16px;
+}
+.section-h{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(36px,6vw,68px);letter-spacing:.03em;line-height:1;color:#fff;
+}
+.section-sub{font-size:15px;font-weight:500;color:var(--muted);line-height:1.65;max-width:520px;margin-top:12px;}
+
+/* reveal */
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .6s ease,transform .6s ease;}
+.reveal.up{opacity:1;transform:translateY(0);}
+.reveal-left{opacity:0;transform:translateX(-32px);transition:opacity .6s ease,transform .6s ease;}
+.reveal-left.up{opacity:1;transform:translateX(0);}
+.reveal-right{opacity:0;transform:translateX(32px);transition:opacity .6s ease,transform .6s ease;}
+.reveal-right.up{opacity:1;transform:translateX(0);}
+
+/* ═══════════════ FEATURES ═══════════════ */
+.features-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:16px;
+  margin-top:56px;
+}
+.feat-card{
+  background:rgba(255,255,255,0.02);
+  border:1px solid rgba(255,255,255,0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius:24px;padding:32px 28px;
+  position:relative;overflow:hidden;
+  transition:all .4s cubic-bezier(0.23, 1, 0.32, 1);
+  cursor:default;
+}
+.feat-card:hover{
+  border-color:rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.04);
+  transform:translateY(-8px) scale(1.02);
+  box-shadow:0 24px 48px rgba(0,0,0,0.5);
+}
+.feat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--accent,#25F4EE) 50%,transparent);opacity:.6;}
+.feat-card.pink-accent{--accent:#FE2C55;}
+.feat-card.mix-accent{--accent:#a78bfa;}
+
+.feat-icon{
+  width:52px;height:52px;border-radius:15px;
+  background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.1);
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:20px;font-size:24px;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+  transition: transform 0.3s;
+}
+.feat-card:hover .feat-icon {
+  transform: scale(1.1) rotate(5deg);
+}
+
+.feat-title{font-size:16px;font-weight:800;color:#fff;margin-bottom:8px;letter-spacing:-.01em;}
+.feat-desc{font-size:13px;font-weight:500;color:var(--muted);line-height:1.65;}
+.feat-tag{
+  display:inline-block;margin-top:14px;
+  padding:3px 10px;border-radius:100px;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  background:rgba(37,244,238,.08);border:1px solid rgba(37,244,238,.18);color:var(--cyan);
+}
+.feat-card.pink-accent .feat-tag{background:rgba(254,44,85,.08);border-color:rgba(254,44,85,.18);color:var(--pink);}
+.feat-card.mix-accent .feat-tag{background:rgba(167,139,250,.08);border-color:rgba(167,139,250,.2);color:#a78bfa;}
+
+/* ═══════════════ HOW IT WORKS ═══════════════ */
+.how-wrap{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;margin-top:20px;}
+.how-steps{display:flex;flex-direction:column;gap:0;}
+.how-step{
+  display:flex;gap:18px;padding:22px 0;
+  border-bottom:1px solid var(--border);
+  transition:all .25s;cursor:default;
+}
+.how-step:last-child{border-bottom:none;}
+.how-step:hover .step-num{background:linear-gradient(135deg,var(--pink),var(--cyan));color:#000;}
+.step-num{
+  width:36px;height:36px;border-radius:10px;
+  background:rgba(255,255,255,.06);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--muted);
+  flex-shrink:0;transition:all .25s;
+}
+.step-content h4{font-size:14px;font-weight:800;color:#fff;margin-bottom:5px;}
+.step-content p{font-size:13px;font-weight:500;color:var(--muted);line-height:1.6;}
+
+/* App mockup */
+.reveal-right {
+  perspective: 1000px;
+}
+.app-mockup{
+  background:rgba(7,11,22,.8);border:1px solid rgba(255,255,255,.1);
+  border-radius:20px;overflow:hidden;
+  box-shadow:0 32px 80px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.05);
+  position:relative;
+  transform: rotateY(-12deg) rotateX(4deg);
+  transition: transform 0.5s ease;
+}
+.app-mockup:hover {
+  transform: rotateY(-5deg) rotateX(2deg);
+}
+.mockup-bar{
+  padding:12px 16px;border-bottom:1px solid var(--border);
+  background:rgba(0,0,0,.3);
+  display:flex;align-items:center;gap:8px;
+}
+.mockup-dots{display:flex;gap:5px;}
+.mockup-dots span{width:10px;height:10px;border-radius:50%;}
+.d1{background:#ff5f57;}
+.d2{background:#febc2e;}
+.d3{background:#28c840;}
+.mockup-url{flex:1;text-align:center;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);}
+
+.mockup-body{padding:20px;}
+.mock-tabs{display:flex;gap:4px;background:rgba(255,255,255,.04);border-radius:100px;padding:4px;margin-bottom:16px;}
+.mock-tab{flex:1;padding:6px;border-radius:100px;text-align:center;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);}
+.mock-tab.a{background:linear-gradient(135deg,rgba(254,44,85,.2),rgba(37,244,238,.1));border:1px solid rgba(254,44,85,.3);color:#fff;}
+.mock-fields{display:flex;flex-direction:column;gap:8px;}
+.mock-field{background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;}
+.mock-chips{display:flex;gap:6px;flex-wrap:wrap;}
+.mock-chip{padding:6px 12px;border-radius:7px;font-size:10px;font-weight:700;border:1px solid var(--border);color:var(--muted);}
+.mock-chip.a{background:rgba(37,244,238,.12);border-color:var(--cyan);color:var(--cyan);}
+.mock-btn{width:100%;padding:11px;border-radius:9px;margin-top:12px;
+  background:linear-gradient(135deg,var(--pink),#8c0018);
+  color:#fff;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  text-align:center;position:relative;overflow:hidden;}
+.mock-btn::after{content:'';position:absolute;top:0;left:20%;width:55%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent);}
+.mock-output{background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-top:8px;}
+.mock-out-label{display:flex;align-items:center;gap:5px;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+.mock-out-dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 6px var(--cyan);}
+.mock-out-text{font-family:'JetBrains Mono',monospace;font-size:10px;color:#6b7f96;line-height:1.6;}
+
+/* ═══════════════ TABS SHOWCASE ═══════════════ */
+.tabs-section{background:linear-gradient(180deg,transparent,rgba(37,244,238,.025),transparent);}
+.tabs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:52px;}
+.tab-card{
+  background:rgba(255,255,255,0.02);
+  border:1px solid rgba(255,255,255,0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius:24px;
+  padding:32px 26px;position:relative;overflow:hidden;transition:all .4s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.tab-card:hover{
+  transform:translateY(-10px) scale(1.02);
+  background: rgba(255,255,255,0.04);
+  border-color:rgba(255,255,255,.14);
+  box-shadow:0 28px 56px rgba(0,0,0,.6);
+}
+.tab-card::after{content:'';position:absolute;inset:0;border-radius:18px;opacity:0;transition:opacity .3s;
+  background:radial-gradient(circle at 50% 0%, rgba(37,244,238,.06), transparent 70%);}
+.tab-card:hover::after{opacity:1;}
+.tab-card.tab-pink::after{background:radial-gradient(circle at 50% 0%,rgba(254,44,85,.06),transparent 70%);}
+.tab-card.tab-blue::after{background:radial-gradient(circle at 50% 0%,rgba(26,115,232,.08),transparent 70%);}
+
+.tab-num{font-family:'Bebas Neue',sans-serif;font-size:52px;letter-spacing:.04em;
+  background:linear-gradient(135deg,rgba(37,244,238,.4),rgba(37,244,238,.1));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  margin-bottom:6px;line-height:1;
+  filter: drop-shadow(0 4px 8px rgba(37,244,238,0.2));
+}
+.tab-card.tab-pink .tab-num{background:linear-gradient(135deg,rgba(254,44,85,.45),rgba(254,44,85,.12));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  filter: drop-shadow(0 4px 8px rgba(254,44,85,0.2));
+}
+.tab-card.tab-blue .tab-num{background:linear-gradient(135deg,rgba(26,115,232,.5),rgba(26,115,232,.15));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  filter: drop-shadow(0 4px 8px rgba(26,115,232,0.2));
+}
+.tab-name{font-size:20px;font-weight:900;color:#fff;margin-bottom:10px;letter-spacing:-.02em;}
+.tab-desc{font-size:13px;font-weight:500;color:var(--muted);line-height:1.65;}
+.tab-features{margin-top:18px;display:flex;flex-direction:column;gap:7px;}
+.tab-feat{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--text);}
+.tab-feat-dot{width:5px;height:5px;border-radius:50%;background:var(--cyan);flex-shrink:0;}
+.tab-card.tab-pink .tab-feat-dot{background:var(--pink);}
+.tab-card.tab-blue .tab-feat-dot{background:#64b5f6;}
+
+/* ═══════════════ FLOW CTA ═══════════════ */
+.flow-section{text-align:center;padding:80px clamp(20px,6vw,80px);}
+.flow-inner{
+  max-width:700px;margin:0 auto;
+  background:rgba(26,115,232,.06);border:1px solid rgba(26,115,232,.2);
+  border-radius:24px;padding:52px 40px;position:relative;overflow:hidden;
+}
+.flow-inner::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,#64b5f6 50%,transparent);opacity:.6;}
+.flow-glow{position:absolute;width:300px;height:300px;
+  background:radial-gradient(circle,rgba(26,115,232,.12),transparent 70%);
+  top:-100px;left:50%;transform:translateX(-50%);pointer-events:none;}
+.flow-badge-label{display:inline-flex;align-items:center;gap:7px;padding:5px 14px;border-radius:100px;
+  background:rgba(26,115,232,.1);border:1px solid rgba(26,115,232,.25);
+  font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#64b5f6;margin-bottom:20px;}
+.flow-inner h2{font-family:'Bebas Neue',sans-serif;font-size:clamp(34px,5vw,52px);color:#fff;letter-spacing:.03em;line-height:1.05;margin-bottom:14px;}
+.flow-inner p{font-size:14px;font-weight:500;color:var(--muted);line-height:1.65;margin-bottom:28px;}
+.btn-flow-cta{
+  display:inline-flex;align-items:center;gap:9px;
+  padding:14px 36px;border-radius:100px;
+  background:linear-gradient(135deg,#1a73e8,#0d47a1);color:#fff;
+  font-weight:800;font-size:13px;letter-spacing:.06em;text-transform:uppercase;
+  text-decoration:none;transition:all .22s;
+  box-shadow:0 6px 24px rgba(26,115,232,.4);
+}
+.btn-flow-cta:hover{transform:translateY(-2px);box-shadow:0 10px 32px rgba(26,115,232,.55);}
+.flow-note{font-size:11px;color:var(--muted);margin-top:14px;font-weight:500;}
+
+/* ═══════════════ TESTIMONIAL / SOCIAL PROOF ═══════════════ */
+.proof-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:52px;}
+.proof-card{
+  background:rgba(255,255,255,0.02);
+  border:1px solid rgba(255,255,255,0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius:20px;padding:26px 24px;
+  transition:all .4s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.proof-card:hover{
+  border-color:rgba(255,255,255,.13);
+  background: rgba(255,255,255,0.04);
+  transform:translateY(-6px);
+  box-shadow:0 16px 32px rgba(0,0,0,0.4);
+}
+.proof-stars{display:flex;gap:3px;margin-bottom:12px;font-size:13px;}
+.proof-text{font-size:13px;font-weight:500;color:var(--text);line-height:1.65;margin-bottom:16px;}
+.proof-author{display:flex;align-items:center;gap:10px;}
+.proof-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;
+  background:linear-gradient(135deg,var(--pink),var(--cyan));}
+.proof-name{font-size:12px;font-weight:800;color:#fff;}
+.proof-role{font-size:10px;font-weight:600;color:var(--muted);margin-top:1px;}
+
+/* ═══════════════ FAQ ═══════════════ */
+.faq-list{max-width:680px;margin:48px auto 0;display:flex;flex-direction:column;gap:12px;}
+.faq-item{
+  background:rgba(255,255,255,0.02);
+  border:1px solid rgba(255,255,255,0.05);
+  border-radius:16px;overflow:hidden;transition:all .3s ease;
+}
+.faq-item:hover {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.1);
+}
+.faq-item.open{
+  border-color:rgba(37,244,238,.3);
+  background: rgba(37,244,238,0.02);
+}
+.faq-q{
+  width:100%;padding:22px 24px;background:none;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  text-align:left;color:var(--text);font-family:'Montserrat',sans-serif;
+  font-size:15px;font-weight:700;transition:color .2s;
+}
+.faq-q:hover{color:#fff;}
+.faq-arrow{
+  width:24px;height:24px;border-radius:50%;
+  background:rgba(255,255,255,.05);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  font-size:14px;color:var(--muted);transition:all .3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.faq-item.open .faq-arrow{
+  background:rgba(37,244,238,.1);
+  border-color:rgba(37,244,238,.3);
+  color:var(--cyan);
+  transform:rotate(45deg);
+}
+.faq-a-wrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s ease-out;
+}
+.faq-item.open .faq-a-wrapper {
+  grid-template-rows: 1fr;
+}
+.faq-a {
+  overflow: hidden;
+  padding: 0 24px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.faq-item.open .faq-a {
+  padding-bottom: 22px;
+}
+
+/* ═══════════════ CTA FINAL ═══════════════ */
+.cta-final{
+  text-align:center;padding:100px clamp(20px,6vw,80px);
+  position:relative;overflow:hidden;
+}
+.cta-glow1{position:absolute;width:500px;height:500px;
+  background:radial-gradient(circle,rgba(254,44,85,.1),transparent 65%);
+  top:-150px;left:-100px;pointer-events:none;}
+.cta-glow2{position:absolute;width:400px;height:400px;
+  background:radial-gradient(circle,rgba(37,244,238,.08),transparent 65%);
+  bottom:-120px;right:-80px;pointer-events:none;}
+.cta-final h2{font-family:'Bebas Neue',sans-serif;font-size:clamp(44px,8vw,88px);letter-spacing:.02em;line-height:.95;color:#fff;margin-bottom:20px;}
+.cta-final p{font-size:16px;font-weight:500;color:var(--muted);max-width:480px;margin:0 auto 36px;line-height:1.65;}
+
+/* ═══════════════ FOOTER ═══════════════ */
+footer{
+  position:relative;z-index:1;
+  border-top:1px solid var(--border);
+  padding:36px clamp(20px,5vw,60px);
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;
+}
+.footer-brand{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.06em;
+  background:linear-gradient(90deg,var(--cyan),#fff 50%,var(--pink));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.footer-copy{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.04em;}
+.footer-links{display:flex;gap:20px;}
+.footer-links a{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-decoration:none;transition:color .2s;}
+.footer-links a:hover{color:var(--cyan);}
+
+/* ═══════════════ MOBILE NAV MENU ═══════════════ */
+.mobile-menu{
+  position:fixed;inset:0;z-index:190;
+  background:rgba(3,5,11,.97);backdrop-filter:blur(20px);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;
+  transform:translateY(-100%);transition:transform .35s cubic-bezier(.4,0,.2,1);
+}
+.mobile-menu.open{transform:translateY(0);}
+.mobile-menu a{font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:.06em;color:var(--text);text-decoration:none;transition:color .2s;}
+.mobile-menu a:hover{color:var(--cyan);}
+
+/* ═══════════════ RESPONSIVE ═══════════════ */
+@media(max-width:900px){
+  .features-grid,.tabs-grid,.proof-grid{grid-template-columns:1fr 1fr;}
+  .how-wrap{grid-template-columns:1fr;}
+  .app-mockup{display:none;}
+}
+@media(max-width:600px){
+  .features-grid,.tabs-grid,.proof-grid{grid-template-columns:1fr;}
+  .hero-stats{gap:20px;}
+  .stat-divider{display:none;}
+  .nav-links{display:none;}
+  .hamburger{display:flex;}
+  .flow-inner{padding:32px 20px;}
+  .nav-cta{display:none;}
+}
+</style>
+</head>
+<body>
+
+<div class="noise-overlay"></div>
+<canvas id="bgCanvas"></canvas>
+<div class="particles" id="particles"></div>
+
+<!-- Mobile menu -->
+<div class="mobile-menu" id="mobileMenu">
+  <a href="#features" onclick="closeMobile()">Recursos</a>
+  <a href="#como-funciona" onclick="closeMobile()">Como Funciona</a>
+  <a href="#tabs" onclick="closeMobile()">Ferramentas</a>
+  <a href="#faq" onclick="closeMobile()">FAQ</a>
+  <a href="prompt-generator-pro.html" target="_blank" style="color:var(--pink);">Abrir App →</a>
+</div>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-logo" href="#">
+    <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
+      <rect width="48" height="48" rx="9" fill="#010101"/>
+      <path d="M22 12v18.5a4 4 0 1 1-3-3.87V22.8A8 8 0 1 0 25 30.5V12H22z" fill="#25F4EE" transform="translate(1,1)"/>
+      <path d="M30 17a9 9 0 0 1-5-5h-3v18.5a4 4 0 1 1-3-3.87v-3.9A8 8 0 1 0 25 30.5V17h5z" fill="#FE2C55" transform="translate(-1,-1)"/>
+      <path d="M30 17a9 9 0 0 1-5-5h-3v18.5a4 4 0 1 1-3-3.87v-3.9A8 8 0 1 0 25 30.5V17h5z" fill="#fff"/>
+    </svg>
+    <span class="nav-logo-text">Prompt Generator Pro</span>
+  </a>
+
+  <div class="nav-links">
+    <a href="#features">Recursos</a>
+    <a href="#como-funciona">Como Funciona</a>
+    <a href="#tabs">Ferramentas</a>
+    <a href="#faq">FAQ</a>
+  </div>
+
+  <a class="nav-cta" href="prompt-generator-pro.html" target="_blank">
+    <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+    Usar Grátis
+  </a>
+
+  <div class="hamburger" id="hamburger" onclick="toggleMobile()">
+    <span></span><span></span><span></span>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">
+    <div class="dot"></div>
+    100% Gratuito · Sem Cadastro
+  </div>
+
+  <h1>
+    <span>Crie Vídeos</span>
+    <span class="line-cyan">TikTok Shop</span>
+    <span class="line-pink">Que Vendem</span>
+  </h1>
+
+  <p class="hero-sub">
+    Gere prompts profissionais de vídeo, crie influencers virtuais ultra-realistas e extraia texto de imagens — tudo em uma ferramenta, direto no navegador.
+  </p>
+
+  <div class="hero-actions">
+    <a class="btn-hero-main" href="prompt-generator-pro.html" target="_blank">
+      <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      Abrir App Grátis
+    </a>
+    <a class="btn-hero-sec" href="#features">
+      Ver Recursos
+      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+    </a>
+  </div>
+
+  <div class="hero-stats">
+    <div class="stat">
+      <div class="stat-num">4</div>
+      <div class="stat-label">Ferramentas</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <div class="stat-num">100%</div>
+      <div class="stat-label">No Navegador</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <div class="stat-num">0</div>
+      <div class="stat-label">Cadastros</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <div class="stat-num">∞</div>
+      <div class="stat-label">Prompts Gerados</div>
+    </div>
+  </div>
+
+  <div class="scroll-ind">
+    <span>Scroll</span>
+    <div class="scroll-line"></div>
+  </div>
+</section>
+
+<div class="neon-div"></div>
+
+<!-- FEATURES -->
+<section id="features">
+  <div style="text-align:center;margin-bottom:8px;">
+    <div class="section-tag reveal">✦ Recursos</div>
+  </div>
+  <h2 class="section-h reveal" style="text-align:center;">Tudo que você precisa<br>para vender mais</h2>
+  <p class="section-sub reveal" style="text-align:center;margin:12px auto 0;">Do prompt ao vídeo final — uma ferramenta completa para criadores de conteúdo TikTok Shop.</p>
+
+  <div class="features-grid">
+    <div class="feat-card reveal" style="transition-delay:.1s">
+      <div class="feat-icon">⚡</div>
+      <div class="feat-title">Prompts em Segundos</div>
+      <div class="feat-desc">Selecione o influencer, produto, estilo de venda e duração. O app monta o prompt completo para você automaticamente.</div>
+      <span class="feat-tag">Generator</span>
+    </div>
+    <div class="feat-card pink-accent reveal" style="transition-delay:.18s">
+      <div class="feat-icon">👤</div>
+      <div class="feat-title">Influencer Virtual</div>
+      <div class="feat-desc">Crie influencers hiper-realistas com controle total de etnia, rosto, cabelo, corpo, roupa e cenário. Prompt em PT e EN.</div>
+      <span class="feat-tag">Influencer</span>
+    </div>
+    <div class="feat-card mix-accent reveal" style="transition-delay:.26s">
+      <div class="feat-icon">📄</div>
+      <div class="feat-title">OCR Local</div>
+      <div class="feat-desc">Extraia texto de qualquer imagem diretamente no navegador. Sem upload para servidor, sem API — 100% privado.</div>
+      <span class="feat-tag">OCR</span>
+    </div>
+    <div class="feat-card reveal" style="transition-delay:.34s">
+      <div class="feat-icon">🎬</div>
+      <div class="feat-title">Modo 2×8s → 16s</div>
+      <div class="feat-desc">Gere dois prompts de 8 segundos prontos para serem unidos em um vídeo de 16 segundos com narrativa contínua.</div>
+      <span class="feat-tag">Duração</span>
+    </div>
+    <div class="feat-card pink-accent reveal" style="transition-delay:.42s">
+      <div class="feat-icon">🔵</div>
+      <div class="feat-title">Integração Google Flow</div>
+      <div class="feat-desc">Botão direto que copia o prompt e abre o Google Flow (Veo 3) em um clique. Do prompt ao vídeo com IA em segundos.</div>
+      <span class="feat-tag">Flow</span>
+    </div>
+    <div class="feat-card mix-accent reveal" style="transition-delay:.5s">
+      <div class="feat-icon">📱</div>
+      <div class="feat-title">100% Responsivo</div>
+      <div class="feat-desc">Funciona perfeitamente no celular, tablet e computador. Nenhum app para instalar — abre direto no navegador.</div>
+      <span class="feat-tag">Multi-device</span>
+    </div>
+  </div>
+</section>
+
+<div class="neon-div"></div>
+
+<!-- HOW IT WORKS -->
+<section id="como-funciona">
+  <div class="how-wrap">
+    <div>
+      <div class="section-tag reveal-left">✦ Como Funciona</div>
+      <h2 class="section-h reveal-left" style="transition-delay:.1s">Do zero ao<br><span style="background:linear-gradient(90deg,var(--cyan),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">prompt pronto</span></h2>
+      <p class="section-sub reveal-left" style="transition-delay:.18s">Em menos de 2 minutos você tem um prompt profissional pronto para gerar vídeos que vendem.</p>
+
+      <div class="how-steps" style="margin-top:32px;">
+        <div class="how-step reveal-left" style="transition-delay:.22s">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4>Escolha o Influencer e Estilo</h4>
+            <p>Selecione o tipo de influencer, gênero, estilo de vendas — urgente, emocional, racional ou natural.</p>
+          </div>
+        </div>
+        <div class="how-step reveal-left" style="transition-delay:.3s">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4>Preencha os Dados do Produto</h4>
+            <p>Nome, valor âncora e detalhes visuais. O app adapta o roteiro automaticamente para o seu produto.</p>
+          </div>
+        </div>
+        <div class="how-step reveal-left" style="transition-delay:.38s">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h4>Defina a Duração do Vídeo</h4>
+            <p>Escolha entre 8s, 9–10s, 14–15s ou o modo 2×8s para criar um vídeo completo de 16 segundos.</p>
+          </div>
+        </div>
+        <div class="how-step reveal-left" style="transition-delay:.46s">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <h4>Gerar, Copiar e Enviar ao Flow</h4>
+            <p>Clique em Gerar, depois em Flow — o prompt é copiado e o Google Flow abre automaticamente.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- App mockup -->
+    <div class="reveal-right">
+      <div class="app-mockup">
+        <div class="mockup-bar">
+          <div class="mockup-dots"><span class="d1"></span><span class="d2"></span><span class="d3"></span></div>
+          <div class="mockup-url">prompt-generator-pro.html</div>
+        </div>
+        <div class="mockup-body">
+          <div class="mock-tabs">
+            <div class="mock-tab a">⚡ Generator</div>
+            <div class="mock-tab">OCR</div>
+            <div class="mock-tab">👤 Influencer</div>
+          </div>
+          <div class="mock-fields">
+            <div class="mock-field">🎭 Galã de novela — urgência agressiva</div>
+            <div class="mock-field">Tênis Air Max · R$ 129</div>
+            <div class="mock-field" style="font-size:9px;color:#4a5568;">Branco, solado air, tamanhos 38–44, palmilha anatômica...</div>
+          </div>
+          <div class="mock-chips" style="margin-top:10px;">
+            <div class="mock-chip">⚡ 8s</div>
+            <div class="mock-chip a">🎯 9–10s</div>
+            <div class="mock-chip">🎬 14s</div>
+            <div class="mock-chip">🔁 2×8s</div>
+          </div>
+          <div class="mock-btn">⚡ Gerar Prompt</div>
+          <div class="mock-output">
+            <div class="mock-out-label"><div class="mock-out-dot"></div>Prompt Gerado · 11 linhas</div>
+            <div class="mock-out-text">Faça um galã de novela gravando em formato vertical 9:16... segurando o produto Tênis Air Max... "Vou falar e repetir, este produto está por menos de R$129..."</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="neon-div"></div>
+
+<!-- TABS SHOWCASE -->
+<section id="tabs" class="tabs-section">
+  <div style="text-align:center;">
+    <div class="section-tag reveal">✦ 3 Ferramentas em 1</div>
+    <h2 class="section-h reveal" style="transition-delay:.1s;">Três abas.<br>Poder total.</h2>
+    <p class="section-sub reveal" style="text-align:center;margin:12px auto 0;transition-delay:.18s;">Cada aba foi desenhada para uma etapa da criação de conteúdo para TikTok Shop.</p>
+  </div>
+
+  <div class="tabs-grid">
+    <div class="tab-card reveal" style="transition-delay:.1s">
+      <div class="tab-num">01</div>
+      <div class="tab-name">Generator</div>
+      <div class="tab-desc">Crie prompts de vídeo de vendas em segundos com roteiro, produto e influencer configurados.</div>
+      <div class="tab-features">
+        <div class="tab-feat"><div class="tab-feat-dot"></div>4 durações de vídeo</div>
+        <div class="tab-feat"><div class="tab-feat-dot"></div>8 tipos de influencer</div>
+        <div class="tab-feat"><div class="tab-feat-dot"></div>Modo 2×8s → 16 seg</div>
+        <div class="tab-feat"><div class="tab-feat-dot"></div>Botão direto ao Flow</div>
+      </div>
+    </div>
+
+    <div class="tab-card tab-pink reveal" style="transition-delay:.18s">
+      <div class="tab-num">02</div>
+      <div class="tab-name">Influencer</div>
+      <div class="tab-desc">Monte um influencer virtual com aparência 100% personalizada — do rosto ao cenário.</div>
+      <div class="tab-features">
+        <div class="tab-feat"><div class="tab-feat-dot"></div>Homem ou Mulher</div>
+        <div class="tab-feat"><div class="tab-feat-dot"></div>7 etnias disponíveis</div>
+        <div class="tab-feat"><div class="tab-feat-dot"></div>Prompt EN + PT</div>
+        <div class="tab-feat"><div class="tab-feat-dot"></div>Otimizado para Veo 3</div>
+      </div>
+    </div>
+
+    <div class="tab-card tab-blue reveal" style="transition-delay:.26s">
+      <div class="tab-num">03</div>
+      <div class="tab-name">OCR</div>
+      <div class="tab-desc">Extraia qualquer texto de imagens sem enviar nada para a internet. Tudo acontece no seu navegador.</div>
+      <div class="tab-features">
+        <div class="tab-feat"><div class="tab-feat-dot"></div>Sem upload para servidor</div>
+        <div class="tab-feat"><div class="tab-feat-dot"></div>PT, EN, ES e mais</div>
+        <div class="tab-feat"><div class="tab-feat-dot"></div>Drag & drop</div>
+        <div class="tab-feat"><div class="tab-feat-dot"></div>Selecione e copie</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="neon-div"></div>
+
+<!-- GOOGLE FLOW -->
+<section class="flow-section">
+  <div class="flow-inner reveal">
+    <div class="flow-glow"></div>
+    <div class="flow-badge-label">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.82V15.18a1 1 0 01-1.447.89L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+      Integração Google Flow
+    </div>
+    <h2>Do prompt ao vídeo<br>em 2 cliques</h2>
+    <p>O app copia o prompt automaticamente e abre o Google Flow (Veo 3) numa nova aba. Você só precisa colar e gerar o vídeo.</p>
+    <a class="btn-flow-cta" href="prompt-generator-pro.html" target="_blank">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.82V15.18a1 1 0 01-1.447.89L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+      Testar Agora
+    </a>
+    <div class="flow-note">Funciona com Google Flow, Midjourney, DALL-E 3, Stable Diffusion e mais.</div>
+  </div>
+</section>
+
+<div class="neon-div"></div>
+
+<!-- SOCIAL PROOF -->
+<section id="depoimentos">
+  <div style="text-align:center;">
+    <div class="section-tag reveal">✦ Depoimentos</div>
+    <h2 class="section-h reveal" style="transition-delay:.1s;">O que dizem os<br>criadores</h2>
+  </div>
+  <div class="proof-grid">
+    <div class="proof-card reveal" style="transition-delay:.12s">
+      <div class="proof-stars">⭐⭐⭐⭐⭐</div>
+      <div class="proof-text">"Eu gastava 30 minutos montando prompt de vídeo. Agora levo 2 minutos e o resultado é muito mais profissional."</div>
+      <div class="proof-author">
+        <div class="proof-avatar">👨</div>
+        <div>
+          <div class="proof-name">Rafael M.</div>
+          <div class="proof-role">Afiliado TikTok Shop</div>
+        </div>
+      </div>
+    </div>
+    <div class="proof-card reveal" style="transition-delay:.2s">
+      <div class="proof-stars">⭐⭐⭐⭐⭐</div>
+      <div class="proof-text">"O OCR me ajuda a copiar textos de prints de produtos para descrever direto no app. Fluxo perfeito."</div>
+      <div class="proof-author">
+        <div class="proof-avatar">👩</div>
+        <div>
+          <div class="proof-name">Camila S.</div>
+          <div class="proof-role">Criadora de Conteúdo</div>
+        </div>
+      </div>
+    </div>
+    <div class="proof-card reveal" style="transition-delay:.28s">
+      <div class="proof-stars">⭐⭐⭐⭐⭐</div>
+      <div class="proof-text">"O gerador de influencer virtual é incrível. Criei um personagem realista para minha marca em 5 minutos."</div>
+      <div class="proof-author">
+        <div class="proof-avatar">🧑</div>
+        <div>
+          <div class="proof-name">Lucas A.</div>
+          <div class="proof-role">Lojista TikTok Shop</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="neon-div"></div>
+
+<!-- FAQ -->
+<section id="faq">
+  <div style="text-align:center;">
+    <div class="section-tag reveal">✦ FAQ</div>
+    <h2 class="section-h reveal" style="transition-delay:.08s;">Perguntas<br>frequentes</h2>
+  </div>
+  <div class="faq-list">
+    <div class="faq-item reveal">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        O app é realmente gratuito?
+        <div class="faq-arrow">+</div>
+      </button>
+      <div class="faq-a-wrapper"><div class="faq-a">Sim, 100% gratuito e sem cadastro. Você abre o arquivo HTML diretamente no navegador e usa todas as ferramentas sem nenhum custo.</div></div>
+    </div>
+    <div class="faq-item reveal" style="transition-delay:.08s">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Preciso de internet para usar?
+        <div class="faq-arrow">+</div>
+      </button>
+      <div class="faq-a-wrapper"><div class="faq-a">O Generator e o Influencer funcionam 100% offline. O OCR precisa de internet apenas na primeira vez para baixar o motor de reconhecimento (~10MB). Depois fica em cache no navegador.</div></div>
+    </div>
+    <div class="faq-item reveal" style="transition-delay:.14s">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        O OCR envia minhas imagens para algum servidor?
+        <div class="faq-arrow">+</div>
+      </button>
+      <div class="faq-a-wrapper"><div class="faq-a">Não. O OCR usa o Tesseract.js, que processa tudo localmente no seu navegador. Nenhum dado é enviado para servidores externos.</div></div>
+    </div>
+    <div class="faq-item reveal" style="transition-delay:.2s">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Precisa de conta no Google Flow para usar a integração?
+        <div class="faq-arrow">+</div>
+      </button>
+      <div class="faq-a-wrapper"><div class="faq-a">O app copia o prompt e abre o Google Flow automaticamente. Para gerar o vídeo no Flow, você precisará de uma conta Google com acesso ao Google AI Pro ou Ultra.</div></div>
+    </div>
+    <div class="faq-item reveal" style="transition-delay:.26s">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Os prompts de influencer funcionam com quais ferramentas?
+        <div class="faq-arrow">+</div>
+      </button>
+      <div class="faq-a-wrapper"><div class="faq-a">Os prompts são otimizados para Google Flow (Veo 3), Midjourney, DALL-E 3, Stable Diffusion e Leonardo AI. O Prompt EN é o mais recomendado para melhores resultados.</div></div>
+    </div>
+  </div>
+</section>
+
+<div class="neon-div"></div>
+
+<!-- CTA FINAL -->
+<section class="cta-final">
+  <div class="cta-glow1"></div>
+  <div class="cta-glow2"></div>
+  <div class="section-tag reveal" style="display:inline-flex;">✦ Comece Agora</div>
+  <h2 class="reveal" style="transition-delay:.1s;">Pronto para criar<br><span style="background:linear-gradient(90deg,var(--cyan),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">vídeos que vendem?</span></h2>
+  <p class="reveal" style="transition-delay:.18s;">Nenhum cadastro. Nenhuma instalação. Apenas abra e comece a criar.</p>
+  <div class="hero-actions reveal" style="transition-delay:.26s;">
+    <a class="btn-hero-main" href="prompt-generator-pro.html" target="_blank">
+      <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      Abrir App Grátis
+    </a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <span class="footer-brand">Prompt Generator Pro</span>
+  <div class="footer-links">
+    <a href="#features">Recursos</a>
+    <a href="#tabs">Ferramentas</a>
+    <a href="#faq">FAQ</a>
+    <a href="prompt-generator-pro.html" target="_blank">Abrir App</a>
+  </div>
+  <span class="footer-copy">© 2025 Pregador DC Daniel · TikTok Shop Tools</span>
+</footer>
+
+<script>
+/* ── Canvas background ── */
+(function(){
+  const c=document.getElementById('bgCanvas'),ctx=c.getContext('2d');
+  let W,H,t=0;
+  const streaks=[];
+  const lights=[];
+  function resize(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;}
+  window.addEventListener('resize',resize);resize();
+
+  for(let i=0;i<8;i++) streaks.push({x:Math.random()*W,y:H*.4+(Math.random()-.5)*H*.3,len:200+Math.random()*600,angle:-.06+(Math.random()-.5)*.05,color:Math.random()<.5?'#25F4EE':'#FE2C55',alpha:.04+Math.random()*.08});
+  for(let i=0;i<4;i++) lights.push({x:Math.random()*W,y:Math.random()*H,r:150+Math.random()*300,c:Math.random()<.5?'#25F4EE':'#FE2C55',o:Math.random()*.03+0.02,vx:(Math.random()-.5)*.5,vy:(Math.random()-.5)*.5});
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);t+=.002;
+
+    // Animated ambient lights
+    lights.forEach(l => {
+      l.x += l.vx; l.y += l.vy;
+      if(l.x<0 || l.x>W) l.vx*=-1; if(l.y<0 || l.y>H) l.vy*=-1;
+      const g = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r);
+      g.addColorStop(0, l.c + Math.round(l.o*255).toString(16).padStart(2,'0'));
+      g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+    });
+
+    streaks.forEach((s,i)=>{
+      const oy=Math.sin(t+i*1.1)*14,a=s.alpha*(0.6+0.4*Math.sin(t*.7+i));
+      const sx=s.x+Math.cos(s.angle)*(-s.len/2),sy=s.y+oy+Math.sin(s.angle)*(-s.len/2);
+      const ex=s.x+Math.cos(s.angle)*(s.len/2),ey=s.y+oy+Math.sin(s.angle)*(s.len/2);
+      const hex=Math.round(a*255).toString(16).padStart(2,'0');
+      const gr=ctx.createLinearGradient(sx,sy,ex,ey);
+      gr.addColorStop(0,'transparent');gr.addColorStop(.4,s.color+hex);gr.addColorStop(.6,s.color+hex);gr.addColorStop(1,'transparent');
+      ctx.save();ctx.strokeStyle=gr;ctx.lineWidth=1.2+Math.sin(t+i)*.4;ctx.shadowColor=s.color;ctx.shadowBlur=6;
+      ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();ctx.restore();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+/* ── Particles ── */
+(function(){
+  const c=document.getElementById('particles');
+  for(let i=0;i<30;i++){
+    const p=document.createElement('div');p.className='pt';
+    const sz=Math.random()*3+1;
+    const col=Math.random()<.5?'#25F4EE':'#FE2C55';
+    const dur=15+Math.random()*25,del=Math.random()*-30;
+    const blur = Math.random() > 0.5 ? Math.random()*2 : 0;
+    p.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;background:${col};box-shadow:0 0 6px ${col};filter:blur(${blur}px);animation-duration:${dur}s;animation-delay:${del}s;`;
+    c.appendChild(p);
+  }
+})();
+
+/* ── Scroll reveal ── */
+const revObs=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('up');});
+},{threshold:.1});
+document.querySelectorAll('.reveal,.reveal-left,.reveal-right').forEach(el=>revObs.observe(el));
+
+/* ── Mobile menu ── */
+function toggleMobile(){
+  document.getElementById('mobileMenu').classList.toggle('open');
+  document.getElementById('hamburger').classList.toggle('open');
+}
+function closeMobile(){document.getElementById('mobileMenu').classList.remove('open');}
+
+/* ── FAQ ── */
+function toggleFaq(btn){
+  const item=btn.parentElement;
+  const isOpen=item.classList.contains('open');
+  document.querySelectorAll('.faq-item').forEach(i=>{
+    if(i !== item) i.classList.remove('open');
+  });
+  item.classList.toggle('open');
+}
+
+/* ── Nav active link on scroll & Glass Effect ── */
+const sections=document.querySelectorAll('section[id]');
+const navLinks=document.querySelectorAll('.nav-links a');
+const nav = document.querySelector('nav');
+window.addEventListener('scroll',()=>{
+  let cur='';
+  sections.forEach(s=>{if(window.scrollY>=s.offsetTop-120)cur=s.id;});
+  navLinks.forEach(a=>{a.style.color=a.getAttribute('href')==='#'+cur?'var(--cyan)':'';});
+
+  if(window.scrollY > 50) {
+    nav.style.background = 'rgba(3,5,11,.9)';
+    nav.style.height = '60px';
+    nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
+  } else {
+    nav.style.background = 'rgba(3,5,11,.85)';
+    nav.style.height = '64px';
+    nav.style.borderBottom = '1px solid var(--border)';
+  }
+},{passive:true});
+
+/* ── Smooth close mobile on link ── */
+document.querySelectorAll('.mobile-menu a[href^="#"]').forEach(a=>{
+  a.addEventListener('click',()=>closeMobile());
+});
+</script>
+</body>
+</html>
