@@ -1,0 +1,3 @@
+## 2025-05-05 - [Canvas Optimization: Localized Rendering & RGB Pre-calculation]
+**Learning:** High-frequency canvas animation loops are often bottlenecked by full-canvas `clearRect`/`fillRect` overdraw and expensive string manipulation (like hex-to-RGB conversion or color string concatenation) inside `requestAnimationFrame`. Localizing `fillRect` to the object's bounding box and pre-calculating RGB components can nearly double the FPS in complex scenes.
+**Action:** Always look for overdraw in canvas `draw` loops. Pre-calculate constant color components outside the loop and use `rgba()` template literals for alpha-blending instead of per-frame hex-to-string conversions.
