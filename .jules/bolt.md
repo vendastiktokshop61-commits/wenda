@@ -1,0 +1,3 @@
+## 2026-05-07 - [Canvas Overdraw & String Manipulation]
+**Learning:** High-frequency canvas animations (60fps) are heavily impacted by overdraw (filling the entire canvas for small elements) and string manipulation/conversions (hex to string, padStart) within the draw loop. Localizing fillRect to the element's bounding box and pre-calculating RGB color components for rgba() literals provides a massive performance boost.
+**Action:** Always check for full-canvas fillRect/clearRect calls within loops and identify expensive string manipulation in animation frames. Pre-calculate values whenever possible.
