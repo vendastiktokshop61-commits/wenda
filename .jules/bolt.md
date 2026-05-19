@@ -1,0 +1,3 @@
+## 2025-05-19 - Optimizing Canvas Overdraw and Per-Frame String Manipulation
+**Learning:** In high-frequency animation loops (60 FPS), filling the entire canvas multiple times (overdraw) and performing string operations (hex conversion, concatenation) are significant bottlenecks. Localizing `fillRect` to the bounding boxes of radial gradients and pre-calculating RGB color components can nearly double the FPS in complex canvas backgrounds.
+**Action:** Always check for `fillRect(0,0,W,H)` or `clearRect(0,0,W,H)` inside loops that can be localized. Pre-calculate any static color strings or numeric values outside the `requestAnimationFrame` callback.
