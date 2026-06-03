@@ -1,0 +1,3 @@
+## 2025-05-14 - Canvas and Scroll Optimization
+**Learning:** High-frequency canvas animations benefit significantly from reducing overdraw (localizing `fillRect` to light radii) and avoiding string manipulation (pre-calculating RGB components) in the `draw()` loop. Additionally, scroll event listeners that update DOM styles should always use state tracking (`isScrolled`, `lastActive`) to avoid redundant assignments that trigger layout thrashing even when the visual state hasn't changed.
+**Action:** Always profile the `draw()` loop for full-screen fills and string conversions. Apply state guards to scroll-based UI updates by default.
