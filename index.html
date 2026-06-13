@@ -1023,19 +1023,22 @@ footer{
   window.addEventListener('resize',resize);resize();
 
   for(let i=0;i<8;i++) streaks.push({x:Math.random()*W,y:H*.4+(Math.random()-.5)*H*.3,len:200+Math.random()*600,angle:-.06+(Math.random()-.5)*.05,color:Math.random()<.5?'#25F4EE':'#FE2C55',alpha:.04+Math.random()*.08});
-  for(let i=0;i<4;i++) lights.push({x:Math.random()*W,y:Math.random()*H,r:150+Math.random()*300,c:Math.random()<.5?'#25F4EE':'#FE2C55',o:Math.random()*.03+0.02,vx:(Math.random()-.5)*.5,vy:(Math.random()-.5)*.5});
+  for(let i=0;i<4;i++) {
+    const col=Math.random()<.5?'#25F4EE':'#FE2C55';
+    lights.push({x:Math.random()*W,y:Math.random()*H,r:150+Math.random()*300,c:col,rgb:col==='#25F4EE'?'37, 244, 238':'254, 44, 85',o:Math.random()*.03+0.02,vx:(Math.random()-.5)*.5,vy:(Math.random()-.5)*.5});
+  }
 
   function draw(){
     ctx.clearRect(0,0,W,H);t+=.002;
 
-    // Animated ambient lights
+    // Animated ambient lights - Optimized with localized fillRect and pre-calculated RGB
     lights.forEach(l => {
       l.x += l.vx; l.y += l.vy;
       if(l.x<0 || l.x>W) l.vx*=-1; if(l.y<0 || l.y>H) l.vy*=-1;
       const g = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r);
-      g.addColorStop(0, l.c + Math.round(l.o*255).toString(16).padStart(2,'0'));
+      g.addColorStop(0, `rgba(${l.rgb}, ${l.o})`);
       g.addColorStop(1, 'transparent');
-      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle = g; ctx.fillRect(l.x - l.r, l.y - l.r, l.r * 2, l.r * 2);
     });
 
     streaks.forEach((s,i)=>{
