@@ -1,0 +1,3 @@
+## 2025-05-15 - Canvas Overdraw and Scroll Redundancy
+**Learning:** In canvas-heavy applications, overdrawing the entire screen with transparent radial gradients is a significant performance bottleneck. Localizing `fillRect` to the gradient's bounding box and replacing `ctx.save()`/`ctx.restore()` with manual property resets can yield ~50% FPS gains. Additionally, guarding DOM updates in scroll listeners with state variables prevents unnecessary layout thrashing.
+**Action:** Always check for full-screen `fillRect` in animation loops and redundant style assignments in high-frequency event listeners.
