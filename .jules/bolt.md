@@ -1,0 +1,3 @@
+## 2025-05-15 - Canvas and Scroll Listener Optimizations
+**Learning:** Localizing `fillRect` to the bounding box of radial gradients instead of filling the entire canvas significantly reduces GPU fill rate pressure. Pre-calculating color strings (RGB/Hex) outside the high-frequency animation loop and replacing `ctx.save()`/`ctx.restore()` with targeted property resets further reduces CPU overhead. For scroll listeners, state guards prevent redundant DOM assignments that can trigger expensive layout/paint cycles.
+**Action:** Always check for full-canvas fills in animation loops and implement state guards for high-frequency event listeners like `scroll` or `resize`.
