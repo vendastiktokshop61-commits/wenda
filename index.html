@@ -1035,7 +1035,7 @@ footer{
       const g = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r);
       g.addColorStop(0, l.c + Math.round(l.o*255).toString(16).padStart(2,'0'));
       g.addColorStop(1, 'transparent');
-      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle = g; ctx.fillRect(l.x - l.r, l.y - l.r, l.r * 2, l.r * 2);
     });
 
     streaks.forEach((s,i)=>{
