@@ -1,0 +1,3 @@
+## 2025-05-14 - Canvas Redraw and String Optimization
+**Learning:** Localizing `fillRect` to the bounding box of a radial gradient and pre-calculating RGB color components significantly reduces CPU overhead and pixel fill rate in high-frequency animation loops. Removing `ctx.save()` and `ctx.restore()` in favor of manual property resets also provides a measurable boost by reducing state stack operations.
+**Action:** Always check for full-canvas `fillRect` calls within loops and identify opportunities to pre-calculate string-based properties (like colors) outside of the `requestAnimationFrame` callback.
