@@ -1,0 +1,3 @@
+## 2026-06-26 - Optimized Canvas Background Animation
+**Learning:** Localizing `fillRect` to the bounding box of a radial gradient and replacing dynamic hex string construction with pre-calculated RGB template literals significantly reduces GPU overdraw and CPU overhead in high-frequency animation loops. Removing `save()`/`restore()` in favor of manual property resets further minimizes context state change costs.
+**Action:** Always check for full-canvas `fillRect` calls within animation loops and look for opportunities to localize them to the actual area being updated. Prefer `rgba()` template literals over hex manipulation.
