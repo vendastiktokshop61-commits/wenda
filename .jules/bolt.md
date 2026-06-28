@@ -1,0 +1,3 @@
+## 2026-06-28 - Canvas Animation Optimization
+**Learning:** Localizing `fillRect` to bounding boxes for radial gradients and replacing `save()`/`restore()` with manual property resets provides significant performance gains in high-frequency animation loops. Pre-calculating RGB components for theme colors also reduces CPU overhead by avoiding repeated string manipulation and color parsing.
+**Action:** Always check for full-canvas `fillRect` calls inside loops and evaluate if they can be localized. Prefer manual property resets over `save()`/`restore()` for better performance in bottleneck loops.
