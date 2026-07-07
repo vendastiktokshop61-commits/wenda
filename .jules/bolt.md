@@ -1,0 +1,3 @@
+## 2025-05-15 - Canvas Animation Optimization
+**Learning:** Significant performance gains can be achieved by localizing `fillRect` calls to the bounding box of radial gradients instead of clearing/filling the entire canvas. Removing `ctx.save()` and `ctx.restore()` in high-frequency loops and using manual property resets further reduces overhead. Pre-calculating RGB components avoids expensive hex-to-rgba string conversions per frame.
+**Action:** Always check for full-screen `fillRect` inside loops and see if it can be localized. Prefer manual state resets over `save()`/`restore()` for small numbers of property changes.
