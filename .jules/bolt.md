@@ -1,0 +1,3 @@
+## 2025-07-12 - Canvas Animation Bottleneck: Overdraw & String Ops
+**Learning:** Localizing `fillRect` to the radial gradient's bounding box `(x-r, y-r, 2r, 2r)` instead of overdrawing the entire canvas `(0, 0, W, H)` significantly reduces the fragment shader/pixel processing load. Additionally, avoiding `toString(16)` and padding within high-frequency loops by using pre-calculated RGB components and template literals reduces CPU overhead and garbage collection.
+**Action:** Always check for full-canvas `fillRect` within loops that only draw localized elements. Pre-calculate static theme colors into an object with both HEX and RGB strings to optimize `rgba()` construction.
