@@ -1,0 +1,3 @@
+## 2025-05-15 - Canvas Overdraw and State Optimization
+**Learning:** Localizing `fillRect` to bounding boxes for radial gradients and replacing `save`/`restore` with manual property resets significantly improves FPS by reducing overdraw and state management overhead. Pre-calculating RGB components also avoids repetitive string parsing/generation in high-frequency loops.
+**Action:** Always look for full-screen `fillRect` inside loops and check if they can be localized to the drawn element's bounds. Prefer manual property resets over `save`/`restore` for small property changes in high-performance animation loops.
