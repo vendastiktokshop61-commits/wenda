@@ -1,0 +1,6 @@
+## 2025-07-17 - Canvas Performance Optimizations
+**Learning:** In high-frequency 2D canvas animation loops, three primary bottlenecks can be optimized for an immediate performance gain:
+1. Drawing full-screen radial gradients (`ctx.fillRect(0,0,W,H)`) forces expensive pixel overdraw across the entire viewport. Localizing `fillRect` to each light source's bounding box `(x - r, y - r, r * 2, r * 2)` dramatically reduces pixel rendering load.
+2. Converting hex values or values dynamically via `hexString` or `Math.round(val).toString(16)` inside the `draw` loop causes major CPU string conversion and allocations overhead. Mapping known hex values to their pre-calculated `{r, g, b}` components and using template literal `rgba` strings prevents this entirely.
+3. Using `ctx.save()` and `ctx.restore()` in a loop adds state stack overhead. Replacing them with direct styling properties (like resetting `ctx.shadowBlur = 0` manually outside or at the end of the loop) significantly boosts performance.
+**Action:** Always localize canvas gradient fills to their specific bounding box boundaries, pre-calculate RGB color components for key theme colors, and prefer targeted manual property resets over `ctx.save()` and `ctx.restore()`.
