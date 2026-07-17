@@ -1022,8 +1022,36 @@ footer{
   function resize(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;}
   window.addEventListener('resize',resize);resize();
 
-  for(let i=0;i<8;i++) streaks.push({x:Math.random()*W,y:H*.4+(Math.random()-.5)*H*.3,len:200+Math.random()*600,angle:-.06+(Math.random()-.5)*.05,color:Math.random()<.5?'#25F4EE':'#FE2C55',alpha:.04+Math.random()*.08});
-  for(let i=0;i<4;i++) lights.push({x:Math.random()*W,y:Math.random()*H,r:150+Math.random()*300,c:Math.random()<.5?'#25F4EE':'#FE2C55',o:Math.random()*.03+0.02,vx:(Math.random()-.5)*.5,vy:(Math.random()-.5)*.5});
+  // BOLT: Centralize theme colors into pre-calculated RGB components to avoid dynamic hex conversion overhead
+  const COLOR_MAP = {
+    '#25F4EE': { r: 37, g: 244, b: 238, hex: '#25F4EE' },
+    '#FE2C55': { r: 254, g: 44, b: 85, hex: '#FE2C55' }
+  };
+
+  for(let i=0;i<8;i++) {
+    const rawColor = Math.random()<.5?'#25F4EE':'#FE2C55';
+    streaks.push({
+      x:Math.random()*W,
+      y:H*.4+(Math.random()-.5)*H*.3,
+      len:200+Math.random()*600,
+      angle:-.06+(Math.random()-.5)*.05,
+      colorObj:COLOR_MAP[rawColor],
+      alpha:.04+Math.random()*.08
+    });
+  }
+
+  for(let i=0;i<4;i++) {
+    const rawColor = Math.random()<.5?'#25F4EE':'#FE2C55';
+    lights.push({
+      x:Math.random()*W,
+      y:Math.random()*H,
+      r:150+Math.random()*300,
+      colorObj:COLOR_MAP[rawColor],
+      o:Math.random()*.03+0.02,
+      vx:(Math.random()-.5)*.5,
+      vy:(Math.random()-.5)*.5
+    });
+  }
 
   function draw(){
     ctx.clearRect(0,0,W,H);t+=.002;
@@ -1032,22 +1060,47 @@ footer{
     lights.forEach(l => {
       l.x += l.vx; l.y += l.vy;
       if(l.x<0 || l.x>W) l.vx*=-1; if(l.y<0 || l.y>H) l.vy*=-1;
+
       const g = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r);
-      g.addColorStop(0, l.c + Math.round(l.o*255).toString(16).padStart(2,'0'));
+      // BOLT: Avoid hex string construction inside draw loop by using rgba strings
+      g.addColorStop(0, `rgba(${l.colorObj.r},${l.colorObj.g},${l.colorObj.b},${l.o})`);
       g.addColorStop(1, 'transparent');
-      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle = g;
+
+      // BOLT: Localize fillRect to a bounding box rather than the whole viewport W * H to reduce overdraw
+      const x0 = Math.max(0, l.x - l.r);
+      const y0 = Math.max(0, l.y - l.r);
+      const w0 = Math.min(W - x0, l.r * 2);
+      const h0 = Math.min(H - y0, l.r * 2);
+      ctx.fillRect(x0, y0, w0, h0);
     });
 
     streaks.forEach((s,i)=>{
       const oy=Math.sin(t+i*1.1)*14,a=s.alpha*(0.6+0.4*Math.sin(t*.7+i));
       const sx=s.x+Math.cos(s.angle)*(-s.len/2),sy=s.y+oy+Math.sin(s.angle)*(-s.len/2);
       const ex=s.x+Math.cos(s.angle)*(s.len/2),ey=s.y+oy+Math.sin(s.angle)*(s.len/2);
-      const hex=Math.round(a*255).toString(16).padStart(2,'0');
+
+      // BOLT: Using rgba color string representation instead of slow hex string manipulations
+      const colorStr = `rgba(${s.colorObj.r},${s.colorObj.g},${s.colorObj.b},${a})`;
       const gr=ctx.createLinearGradient(sx,sy,ex,ey);
-      gr.addColorStop(0,'transparent');gr.addColorStop(.4,s.color+hex);gr.addColorStop(.6,s.color+hex);gr.addColorStop(1,'transparent');
-      ctx.save();ctx.strokeStyle=gr;ctx.lineWidth=1.2+Math.sin(t+i)*.4;ctx.shadowColor=s.color;ctx.shadowBlur=6;
-      ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();ctx.restore();
+      gr.addColorStop(0,'transparent');
+      gr.addColorStop(.4,colorStr);
+      gr.addColorStop(.6,colorStr);
+      gr.addColorStop(1,'transparent');
+
+      // BOLT: Avoid calling ctx.save() and ctx.restore() inside high-frequency loops; perform inline property updates instead
+      ctx.strokeStyle=gr;
+      ctx.lineWidth=1.2+Math.sin(t+i)*.4;
+      ctx.shadowColor=s.colorObj.hex;
+      ctx.shadowBlur=6;
+      ctx.beginPath();
+      ctx.moveTo(sx,sy);
+      ctx.lineTo(ex,ey);
+      ctx.stroke();
     });
+    // BOLT: Reset shadowBlur explicitly outside the loops since ctx.save()/ctx.restore() were removed
+    ctx.shadowBlur=0;
+
     requestAnimationFrame(draw);
   }
   draw();
