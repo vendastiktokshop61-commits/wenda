@@ -1,0 +1,3 @@
+## 2025-05-15 - Canvas Performance Bottlenecks
+**Learning:** Dynamic hex string generation (using `toString(16)` and `padStart`) and context `save()` / `restore()` are major sources of CPU overhead in high-frequency requestAnimationFrame loops. Additionally, drawing full-screen radial gradients with `fillRect(0,0,W,H)` causes excessive GPU overdraw that degrades frame rates.
+**Action:** Always pre-calculate static or semi-static RGB/RGBA colors during initialization. Replace `save()`/`restore()` with targeted style and property resets (e.g., resetting `shadowBlur = 0`). Localize radial gradient fills using bounding boxes derived from gradient radii to dramatically reduce overdraw area.
