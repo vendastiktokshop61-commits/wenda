@@ -1,0 +1,3 @@
+## 2025-07-26 - Canvas Animation Performance Tuning
+**Learning:** Localizing `fillRect` boundary limits to exactly match bounding boxes of Radial Gradients `(l.x - l.r, l.y - l.r, l.r * 2, l.r * 2)` rather than filling full viewport `(0, 0, W, H)` eliminates massive fill rate overdraw. Additionally, pre-calculating RGB color representations for theme accents avoids expensive runtime hexadecimal string operations, string padding, and numerical base conversions during hot-path anim loops.
+**Action:** Always localize canvas rendering drawing boxes and avoid high-frequency dynamic color string building in future requestAnimationFrame hooks.
