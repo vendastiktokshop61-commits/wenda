@@ -1,0 +1,3 @@
+## 2025-05-15 - Canvas Overdraw & String Allocation Optimization
+**Learning:** High frequency canvas loops are heavily impacted by string-based canvas styling, full-screen canvas overdraws via `fillRect(0,0,W,H)` for small/radial source gradients, and state-save/restore (`ctx.save()`/`ctx.restore()`) cycles. Pre-calculated strings and localized rectangular fill bounds dramatically boost rendering efficiency.
+**Action:** Use pre-calculated RGB/RGBA template literals to avoid dynamic hex conversion, replace `fillRect(0,0,W,H)` with targeted bounding-box boundaries `fillRect(l.x - l.r, l.y - l.r, l.r * 2, l.r * 2)` for regional objects, and reset changed context states manually instead of calling save/restore.
