@@ -1,0 +1,3 @@
+## 2025-07-29 - Canvas Bounding Box & Overdraw Reductions
+**Learning:** In HTML5 Canvas high-frequency rendering loops, executing `fillRect(0, 0, W, H)` for multiple radial gradient ambient lights triggers massive overdraw and CPU bottlenecks. Localizing each fill to its computed gradient bounding box `(x - r, y - r, r * 2, r * 2)` drastically minimizes rasterization work. Additionally, removing matching pairs of `ctx.save()` and `ctx.restore()` in favor of direct property resets (e.g., manually resetting `ctx.shadowBlur = 0`) eliminates significant state management overhead on the GPU/CPU context.
+**Action:** Always localize canvas fills to object bounding boxes and prefer direct property resets over `ctx.save`/`restore` in critical animation loops.
