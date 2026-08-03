@@ -1,0 +1,3 @@
+## 2025-05-15 - Canvas Overdraw and Scroll Layout Thrashing
+**Learning:** Localizing radial gradient calls to an exact bounding box (`(x - r, y - r, r * 2, r * 2)`) avoids expensive full-canvas drawing context loops, and caching `.offsetTop` properties completely eliminates layout thrashing in high-frequency scroll event handlers.
+**Action:** Always pre-calculate trig functions and dimension parameters inside setup/resize events, replace full-canvas overdraws with targeted localized fill rectangles, use state guards for DOM writes, and use direct manual resets of canvas properties like `ctx.shadowBlur = 0` to eliminate `save()` and `restore()` overhead.
