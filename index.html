@@ -1015,39 +1015,104 @@ footer{
 <script>
 /* ── Canvas background ── */
 (function(){
+  // BOLT: Cache frequently used elements and references for speed
   const c=document.getElementById('bgCanvas'),ctx=c.getContext('2d');
   let W,H,t=0;
   const streaks=[];
   const lights=[];
+
+  // BOLT: Centralized colors configuration and pre-computed values
+  const COLORS = {
+    cyan: '#25F4EE',
+    pink: '#FE2C55',
+    cyan_rgb: '37, 244, 238',
+    pink_rgb: '254, 44, 85'
+  };
+
   function resize(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;}
   window.addEventListener('resize',resize);resize();
 
-  for(let i=0;i<8;i++) streaks.push({x:Math.random()*W,y:H*.4+(Math.random()-.5)*H*.3,len:200+Math.random()*600,angle:-.06+(Math.random()-.5)*.05,color:Math.random()<.5?'#25F4EE':'#FE2C55',alpha:.04+Math.random()*.08});
-  for(let i=0;i<4;i++) lights.push({x:Math.random()*W,y:Math.random()*H,r:150+Math.random()*300,c:Math.random()<.5?'#25F4EE':'#FE2C55',o:Math.random()*.03+0.02,vx:(Math.random()-.5)*.5,vy:(Math.random()-.5)*.5});
+  // BOLT: Cache initial streak details with pre-selected colors and trig directions
+  for(let i=0;i<8;i++) {
+    const isCyan = Math.random() < .5;
+    const colorHex = isCyan ? COLORS.cyan : COLORS.pink;
+    const colorRGB = isCyan ? COLORS.cyan_rgb : COLORS.pink_rgb;
+    const angle = -.06+(Math.random()-.5)*.05;
+    streaks.push({
+      x: Math.random()*W,
+      y: H*.4+(Math.random()-.5)*H*.3,
+      len: 200+Math.random()*600,
+      angle: angle,
+      cosAngle: Math.cos(angle),
+      sinAngle: Math.sin(angle),
+      colorHex: colorHex,
+      colorRGB: colorRGB,
+      alpha: .04+Math.random()*.08
+    });
+  }
+
+  // BOLT: Cache light configs with optimized helper properties
+  for(let i=0;i<4;i++) {
+    const isCyan = Math.random() < .5;
+    const rgbStr = isCyan ? COLORS.cyan_rgb : COLORS.pink_rgb;
+    lights.push({
+      x:Math.random()*W,
+      y:Math.random()*H,
+      r:150+Math.random()*300,
+      rgbStr: rgbStr,
+      o:Math.random()*.03+0.02,
+      vx:(Math.random()-.5)*.5,
+      vy:(Math.random()-.5)*.5
+    });
+  }
 
   function draw(){
     ctx.clearRect(0,0,W,H);t+=.002;
 
-    // Animated ambient lights
+    // BOLT: Optimize ambient lights animation and render via localized bounding boxes
     lights.forEach(l => {
       l.x += l.vx; l.y += l.vy;
       if(l.x<0 || l.x>W) l.vx*=-1; if(l.y<0 || l.y>H) l.vy*=-1;
+
       const g = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r);
-      g.addColorStop(0, l.c + Math.round(l.o*255).toString(16).padStart(2,'0'));
+      // BOLT: Build gradient with pre-computed RGB components to avoid slow conversions
+      g.addColorStop(0, 'rgba(' + l.rgbStr + ',' + l.o + ')');
       g.addColorStop(1, 'transparent');
-      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle = g;
+
+      // BOLT: Localize fillRect to bounding box to minimize pixel overdraw
+      const rx = l.x - l.r, ry = l.y - l.r, d = l.r * 2;
+      ctx.fillRect(rx < 0 ? 0 : rx, ry < 0 ? 0 : ry, d, d);
     });
 
+    // BOLT: Optimize streaks by eliminating save/restore, localizing rendering, and leveraging cached trig parameters
     streaks.forEach((s,i)=>{
-      const oy=Math.sin(t+i*1.1)*14,a=s.alpha*(0.6+0.4*Math.sin(t*.7+i));
-      const sx=s.x+Math.cos(s.angle)*(-s.len/2),sy=s.y+oy+Math.sin(s.angle)*(-s.len/2);
-      const ex=s.x+Math.cos(s.angle)*(s.len/2),ey=s.y+oy+Math.sin(s.angle)*(s.len/2);
-      const hex=Math.round(a*255).toString(16).padStart(2,'0');
+      const oy=Math.sin(t+i*1.1)*14, a=s.alpha*(0.6+0.4*Math.sin(t*.7+i));
+      const halfLen = s.len / 2;
+      const dx = s.cosAngle * halfLen, dy = s.sinAngle * halfLen;
+      const sx=s.x - dx, sy=s.y+oy - dy;
+      const ex=s.x + dx, ey=s.y+oy + dy;
+
       const gr=ctx.createLinearGradient(sx,sy,ex,ey);
-      gr.addColorStop(0,'transparent');gr.addColorStop(.4,s.color+hex);gr.addColorStop(.6,s.color+hex);gr.addColorStop(1,'transparent');
-      ctx.save();ctx.strokeStyle=gr;ctx.lineWidth=1.2+Math.sin(t+i)*.4;ctx.shadowColor=s.color;ctx.shadowBlur=6;
-      ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();ctx.restore();
+      const rgbaColor = 'rgba(' + s.colorRGB + ',' + a.toFixed(3) + ')';
+      gr.addColorStop(0,'transparent');
+      gr.addColorStop(.4, rgbaColor);
+      gr.addColorStop(.6, rgbaColor);
+      gr.addColorStop(1,'transparent');
+
+      // BOLT: Avoid slow ctx.save() and ctx.restore() operations; manually reset shadow properties
+      ctx.strokeStyle=gr;
+      ctx.lineWidth=1.2+Math.sin(t+i)*.4;
+      ctx.shadowColor=s.colorHex;
+      ctx.shadowBlur=6;
+      ctx.beginPath();
+      ctx.moveTo(sx,sy);
+      ctx.lineTo(ex,ey);
+      ctx.stroke();
     });
+
+    // BOLT: Explicitly reset shadowBlur to ensure next frames/renders are unaffected without calling ctx.restore()
+    ctx.shadowBlur = 0;
     requestAnimationFrame(draw);
   }
   draw();
@@ -1091,22 +1156,60 @@ function toggleFaq(btn){
 }
 
 /* ── Nav active link on scroll & Glass Effect ── */
-const sections=document.querySelectorAll('section[id]');
-const navLinks=document.querySelectorAll('.nav-links a');
+// BOLT: Cache DOM references and offsets to completely prevent forced layouts / reflows during scroll events
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('.nav-links a');
 const nav = document.querySelector('nav');
-window.addEventListener('scroll',()=>{
-  let cur='';
-  sections.forEach(s=>{if(window.scrollY>=s.offsetTop-120)cur=s.id;});
-  navLinks.forEach(a=>{a.style.color=a.getAttribute('href')==='#'+cur?'var(--cyan)':'';});
 
-  if(window.scrollY > 50) {
-    nav.style.background = 'rgba(3,5,11,.9)';
-    nav.style.height = '60px';
-    nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
+let cachedSections = [];
+function updateCachedOffsets() {
+  cachedSections = Array.from(sections).map(s => ({
+    id: s.id,
+    offsetTop: s.offsetTop
+  }));
+}
+// BOLT: Load and window resize cache updating
+window.addEventListener('load', updateCachedOffsets);
+window.addEventListener('resize', updateCachedOffsets);
+updateCachedOffsets();
+
+let isScrolled = false;
+let lastActive = '';
+
+window.addEventListener('scroll',()=>{
+  const scrollY = window.scrollY;
+  let cur='';
+
+  // BOLT: Query cached offsets instead of querying element properties like .offsetTop from DOM (triggers forced synchronous reflow)
+  for (let i = 0; i < cachedSections.length; i++) {
+    if (scrollY >= cachedSections[i].offsetTop - 120) {
+      cur = cachedSections[i].id;
+    }
+  }
+
+  // BOLT: Update active nav links state using state guards to skip redundant assignments
+  if (cur !== lastActive) {
+    lastActive = cur;
+    navLinks.forEach(a => {
+      a.style.color = a.getAttribute('href') === '#' + cur ? 'var(--cyan)' : '';
+    });
+  }
+
+  // BOLT: Guard style updates using state flags to prevent repetitive heavy style recalcs
+  if (scrollY > 50) {
+    if (!isScrolled) {
+      isScrolled = true;
+      nav.style.background = 'rgba(3,5,11,.9)';
+      nav.style.height = '60px';
+      nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
+    }
   } else {
-    nav.style.background = 'rgba(3,5,11,.85)';
-    nav.style.height = '64px';
-    nav.style.borderBottom = '1px solid var(--border)';
+    if (isScrolled) {
+      isScrolled = false;
+      nav.style.background = 'rgba(3,5,11,.85)';
+      nav.style.height = '64px';
+      nav.style.borderBottom = '1px solid var(--border)';
+    }
   }
 },{passive:true});
 
