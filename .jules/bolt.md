@@ -1,0 +1,3 @@
+## 2025-05-15 - Canvas Overdraw & String Allocation in High-Frequency Loops
+**Learning:** Localizing canvas gradient fills to exactly `(x - r, y - r, r * 2, r * 2)` bounding boxes instead of filling the full window area (`fillRect(0,0,W,H)`) significantly avoids overdraw overhead. Additionally, pre-calculating RGB color components instead of dynamically evaluating hex/rgba strings inside high-frequency frames avoids GC pauses and redundant CPU computations.
+**Action:** Always localize canvas gradient drawing areas and store RGB static templates/primitives directly on animated state objects during initialization.
