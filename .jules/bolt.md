@@ -1,0 +1,3 @@
+## 2025-08-07 - Localized Canvas Gradients and Scroll Layout Cache
+**Learning:** High-frequency canvas animation loops and scroll event handlers suffer from massive rendering bottlenecks due to viewport-wide radial gradient overdraws, redundant trigonometry calculations, and forced layout thrashing caused by querying DOM offset heights during scroll. Localizing radial gradient fills to their bounding boxes and caching DOM offsets drastically increases FPS.
+**Action:** Always localize radial gradients to their bounding boxes, avoid ctx.save()/restore() in high-performance loops, and cache element offsets to prevent synchronous layout reflows during scroll.
