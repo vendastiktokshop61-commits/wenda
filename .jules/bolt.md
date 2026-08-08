@@ -1,0 +1,3 @@
+## 2025-05-15 - Canvas Radial Overdraw and Scroll Reflow Optimization
+**Learning:** High-frequency rendering loops that draw radial gradients across the full viewport cause severe CPU overdraw, which can be mitigated by localizing `fillRect` bounds to `2 * radius`. Simultaneously, scroll event listeners that read `offsetTop` trigger layout thrashing/reflow, which is eliminated by caching offsets on load and resize, and using state-guards to prevent redundant DOM style updates.
+**Action:** Always localize canvas fill operations to local bounding boxes and cache all DOM offset queries on load/resize instead of reading them inside scroll listeners.
