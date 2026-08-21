@@ -1,0 +1,3 @@
+## 2026-08-21 - Radial Gradient Overdraw & Scroll Reflow Elimination in Canvas Landing Page
+**Learning:** In full-screen 2D canvas backgrounds, calling `fillRect(0, 0, W, H)` for radial lights overdraws the entire viewport per light source. Localizing `fillRect` to `[x - r, y - r, 2*r, 2*r]` eliminates massive pixel overdraw. Furthermore, accessing `offsetTop` inside passive scroll listeners causes forced layout reflows on scroll ticks; caching section offsets on load/resize completely resolves this thrashing.
+**Action:** When working with 2D canvas particle/light systems, restrict `fillRect` bounds to each light's bounding box and pre-cache layout properties (`offsetTop`) outside scroll handlers.
