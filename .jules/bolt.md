@@ -1,0 +1,3 @@
+## 2026-08-13 - Canvas Bounding Box & Scroll Layout Thrashing Optimization
+**Learning:** Localizing radial gradient `fillRect` calls to bounding boxes (`[x-r, y-r, 2r, 2r]`), pre-calculating RGB/trig values, and removing `ctx.save()`/`ctx.restore()` in high-frequency animation loops eliminates major CPU canvas overhead. Caching section vertical offsets on load/resize and state-guarding DOM style writes removes forced reflow layout thrashing during scroll events.
+**Action:** Always check canvas loops for full-canvas clear/fill overdraw and save/restore overhead, and state-guard DOM style updates in scroll handlers.
