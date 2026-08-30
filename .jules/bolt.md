@@ -1,0 +1,3 @@
+## 2025-05-15 - Localize Canvas fillRect Overdraw and Cache Section Offsets
+**Learning:** In full-screen HTML5 canvas animations, executing `ctx.fillRect(0, 0, W, H)` for multiple radial gradients on every frame causes severe full-screen overdraw bottlenecks. Localizing `fillRect` to each gradient's bounding box (`r * 2`) drastically reduces fill rate overhead. Additionally, querying `section.offsetTop` inside scroll event listeners triggers forced layout reflows; caching offsets on window load and resize eliminates layout thrashing during scrolling.
+**Action:** Always bound radial gradient fills to their local radii and cache element DOM layout properties (`offsetTop`, `offsetHeight`) on load/resize when handling high-frequency events or animation loops.
