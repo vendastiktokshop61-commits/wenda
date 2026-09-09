@@ -1,0 +1,3 @@
+## 2026-09-09 - Localized Canvas Radial Fills & Scroll Offset Caching
+**Learning:** Localizing radial gradient `fillRect` calls to the bounding box (`2 * radius`) instead of clearing/filling the entire screen canvas reduces GPU overdraw overhead significantly. Simultaneously, caching `offsetTop` on window load/resize in scroll event handlers eliminates forced synchronous layout reflows on scroll.
+**Action:** When working with full-page canvas background gradients or scroll position observers, always bound the fill bounds to the target area and cache DOM element geometry outside scroll listeners.
