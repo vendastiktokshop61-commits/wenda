@@ -1014,6 +1014,9 @@ footer{
 
 <script>
 /* ── Canvas background ── */
+/* BOLT: Optimized background canvas animation by localizing radial gradient fillRect bounds,
+   pre-calculating RGB color representations, pre-computing trigonometric vectors for streaks,
+   removing ctx.save()/ctx.restore() overhead via manual state reset, and caching section offsets. */
 (function(){
   const c=document.getElementById('bgCanvas'),ctx=c.getContext('2d');
   let W,H,t=0;
@@ -1022,32 +1025,82 @@ footer{
   function resize(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;}
   window.addEventListener('resize',resize);resize();
 
-  for(let i=0;i<8;i++) streaks.push({x:Math.random()*W,y:H*.4+(Math.random()-.5)*H*.3,len:200+Math.random()*600,angle:-.06+(Math.random()-.5)*.05,color:Math.random()<.5?'#25F4EE':'#FE2C55',alpha:.04+Math.random()*.08});
-  for(let i=0;i<4;i++) lights.push({x:Math.random()*W,y:Math.random()*H,r:150+Math.random()*300,c:Math.random()<.5?'#25F4EE':'#FE2C55',o:Math.random()*.03+0.02,vx:(Math.random()-.5)*.5,vy:(Math.random()-.5)*.5});
+  for(let i=0;i<8;i++) {
+    const angle = -.06+(Math.random()-.5)*.05;
+    const color = Math.random()<.5?'#25F4EE':'#FE2C55';
+    // Pre-calculate cos and sin for streak orientation
+    streaks.push({
+      x:Math.random()*W,
+      y:H*.4+(Math.random()-.5)*H*.3,
+      len:200+Math.random()*600,
+      angle:angle,
+      cosA:Math.cos(angle),
+      sinA:Math.sin(angle),
+      color:color,
+      // Pre-calculate RGB template for fast alpha string formatting
+      rgb:color==='#25F4EE'?'rgba(37,244,238,':'rgba(254,44,85,',
+      alpha:.04+Math.random()*.08
+    });
+  }
+
+  for(let i=0;i<4;i++) {
+    const color = Math.random()<.5?'#25F4EE':'#FE2C55';
+    lights.push({
+      x:Math.random()*W,
+      y:Math.random()*H,
+      r:150+Math.random()*300,
+      c:color,
+      rgb:color==='#25F4EE'?'rgba(37,244,238,':'rgba(254,44,85,',
+      o:Math.random()*.03+0.02,
+      vx:(Math.random()-.5)*.5,
+      vy:(Math.random()-.5)*.5
+    });
+  }
 
   function draw(){
     ctx.clearRect(0,0,W,H);t+=.002;
 
     // Animated ambient lights
-    lights.forEach(l => {
+    // BOLT: Localized fillRect to light bounding box (l.x-l.r, l.y-l.r, l.r*2, l.r*2) instead of full screen canvas (0,0,W,H)
+    for(let i=0;i<lights.length;i++){
+      const l = lights[i];
       l.x += l.vx; l.y += l.vy;
       if(l.x<0 || l.x>W) l.vx*=-1; if(l.y<0 || l.y>H) l.vy*=-1;
       const g = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r);
-      g.addColorStop(0, l.c + Math.round(l.o*255).toString(16).padStart(2,'0'));
+      g.addColorStop(0, l.rgb + (l.o).toFixed(4) + ')');
       g.addColorStop(1, 'transparent');
-      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
-    });
+      ctx.fillStyle = g;
+      ctx.fillRect(l.x - l.r, l.y - l.r, l.r * 2, l.r * 2);
+    }
 
-    streaks.forEach((s,i)=>{
+    // BOLT: Avoid save/restore state stack overhead inside animation loop
+    for(let i=0;i<streaks.length;i++){
+      const s = streaks[i];
       const oy=Math.sin(t+i*1.1)*14,a=s.alpha*(0.6+0.4*Math.sin(t*.7+i));
-      const sx=s.x+Math.cos(s.angle)*(-s.len/2),sy=s.y+oy+Math.sin(s.angle)*(-s.len/2);
-      const ex=s.x+Math.cos(s.angle)*(s.len/2),ey=s.y+oy+Math.sin(s.angle)*(s.len/2);
-      const hex=Math.round(a*255).toString(16).padStart(2,'0');
+      const halfLen = s.len * 0.5;
+      const sx=s.x - s.cosA * halfLen, sy=s.y + oy - s.sinA * halfLen;
+      const ex=s.x + s.cosA * halfLen, ey=s.y + oy + s.sinA * halfLen;
+
       const gr=ctx.createLinearGradient(sx,sy,ex,ey);
-      gr.addColorStop(0,'transparent');gr.addColorStop(.4,s.color+hex);gr.addColorStop(.6,s.color+hex);gr.addColorStop(1,'transparent');
-      ctx.save();ctx.strokeStyle=gr;ctx.lineWidth=1.2+Math.sin(t+i)*.4;ctx.shadowColor=s.color;ctx.shadowBlur=6;
-      ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();ctx.restore();
-    });
+      const colStr = s.rgb + a.toFixed(4) + ')';
+      gr.addColorStop(0,'transparent');
+      gr.addColorStop(.4,colStr);
+      gr.addColorStop(.6,colStr);
+      gr.addColorStop(1,'transparent');
+
+      ctx.strokeStyle=gr;
+      ctx.lineWidth=1.2+Math.sin(t+i)*.4;
+      ctx.shadowColor=s.color;
+      ctx.shadowBlur=6;
+
+      ctx.beginPath();
+      ctx.moveTo(sx,sy);
+      ctx.lineTo(ex,ey);
+      ctx.stroke();
+    }
+    // Reset shadowBlur to avoid bleeding state outside
+    ctx.shadowBlur=0;
+
     requestAnimationFrame(draw);
   }
   draw();
@@ -1091,22 +1144,52 @@ function toggleFaq(btn){
 }
 
 /* ── Nav active link on scroll & Glass Effect ── */
-const sections=document.querySelectorAll('section[id]');
+/* BOLT: Caching section vertical offsets on load and window resize to eliminate forced layout reflow (offsetTop read) on every scroll frame. State-guard DOM property updates to prevent style thrashing. */
+let cachedSections = [];
+function updateSectionOffsets() {
+  cachedSections = Array.from(document.querySelectorAll('section[id]')).map(s => ({
+    id: s.id,
+    offsetTop: s.offsetTop
+  }));
+}
+window.addEventListener('load', updateSectionOffsets);
+window.addEventListener('resize', updateSectionOffsets);
+updateSectionOffsets();
+
 const navLinks=document.querySelectorAll('.nav-links a');
 const nav = document.querySelector('nav');
-window.addEventListener('scroll',()=>{
-  let cur='';
-  sections.forEach(s=>{if(window.scrollY>=s.offsetTop-120)cur=s.id;});
-  navLinks.forEach(a=>{a.style.color=a.getAttribute('href')==='#'+cur?'var(--cyan)':'';});
+let currentActiveId = null;
+let isScrolledPastThreshold = false;
 
-  if(window.scrollY > 50) {
-    nav.style.background = 'rgba(3,5,11,.9)';
-    nav.style.height = '60px';
-    nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
-  } else {
-    nav.style.background = 'rgba(3,5,11,.85)';
-    nav.style.height = '64px';
-    nav.style.borderBottom = '1px solid var(--border)';
+window.addEventListener('scroll',()=>{
+  const scrollY = window.scrollY;
+  let cur = '';
+
+  for(let i=0; i<cachedSections.length; i++) {
+    if(scrollY >= cachedSections[i].offsetTop - 120) {
+      cur = cachedSections[i].id;
+    }
+  }
+
+  if(cur !== currentActiveId) {
+    currentActiveId = cur;
+    navLinks.forEach(a => {
+      a.style.color = (a.getAttribute('href') === '#' + cur) ? 'var(--cyan)' : '';
+    });
+  }
+
+  const pastThreshold = scrollY > 50;
+  if(pastThreshold !== isScrolledPastThreshold) {
+    isScrolledPastThreshold = pastThreshold;
+    if(pastThreshold) {
+      nav.style.background = 'rgba(3,5,11,.9)';
+      nav.style.height = '60px';
+      nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
+    } else {
+      nav.style.background = 'rgba(3,5,11,.85)';
+      nav.style.height = '64px';
+      nav.style.borderBottom = '1px solid var(--border)';
+    }
   }
 },{passive:true});
 
