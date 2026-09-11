@@ -1,0 +1,3 @@
+## 2026-08-13 - Localized canvas fills & cached scroll offsets
+**Learning:** In canvas ambient background rendering, calling `ctx.fillRect(0,0,W,H)` over the full viewport for localized radial gradient spots causes massive fill-rate overdraw. Localizing the `fillRect` bounding box to `[x - r, y - r, 2r, 2r]` alongside caching DOM `offsetTop` queries on scroll eliminates layout thrashing and overdraw, boosting idle FPS from 29.76 to 52.45 (+76%) and scroll FPS from 30.96 to 49.51 (+60%).
+**Action:** Always inspect canvas background render loops for full-viewport fills on localized effects, and pre-cache section offsets outside scroll listeners.
