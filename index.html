@@ -1013,7 +1013,7 @@ footer{
 </footer>
 
 <script>
-/* ── Canvas background ── */
+/* BOLT: Optimized background canvas animation - pre-calculated RGB/trig, localized radial fills, removed save/restore */
 (function(){
   const c=document.getElementById('bgCanvas'),ctx=c.getContext('2d');
   let W,H,t=0;
@@ -1022,32 +1022,86 @@ footer{
   function resize(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;}
   window.addEventListener('resize',resize);resize();
 
-  for(let i=0;i<8;i++) streaks.push({x:Math.random()*W,y:H*.4+(Math.random()-.5)*H*.3,len:200+Math.random()*600,angle:-.06+(Math.random()-.5)*.05,color:Math.random()<.5?'#25F4EE':'#FE2C55',alpha:.04+Math.random()*.08});
-  for(let i=0;i<4;i++) lights.push({x:Math.random()*W,y:Math.random()*H,r:150+Math.random()*300,c:Math.random()<.5?'#25F4EE':'#FE2C55',o:Math.random()*.03+0.02,vx:(Math.random()-.5)*.5,vy:(Math.random()-.5)*.5});
+  for(let i=0;i<8;i++){
+    const color = Math.random() < .5 ? '#25F4EE' : '#FE2C55';
+    const angle = -.06 + (Math.random() - .5) * .05;
+    const len = 200 + Math.random() * 600;
+    streaks.push({
+      x: Math.random() * W,
+      y: H * .4 + (Math.random() - .5) * H * .3,
+      len: len,
+      halfLen: len / 2,
+      angle: angle,
+      cosAngle: Math.cos(angle),
+      sinAngle: Math.sin(angle),
+      color: color,
+      rgb: color === '#25F4EE' ? '37,244,238' : '254,44,85',
+      alpha: .04 + Math.random() * .08
+    });
+  }
+
+  for(let i=0;i<4;i++){
+    const color = Math.random() < .5 ? '#25F4EE' : '#FE2C55';
+    lights.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      r: 150 + Math.random() * 300,
+      c: color,
+      rgb: color === '#25F4EE' ? '37,244,238' : '254,44,85',
+      o: Math.random() * .03 + 0.02,
+      vx: (Math.random() - .5) * .5,
+      vy: (Math.random() - .5) * .5
+    });
+  }
 
   function draw(){
     ctx.clearRect(0,0,W,H);t+=.002;
 
-    // Animated ambient lights
-    lights.forEach(l => {
+    // Animated ambient lights - localized bounding box fill
+    for(let i=0; i<lights.length; i++){
+      const l = lights[i];
       l.x += l.vx; l.y += l.vy;
-      if(l.x<0 || l.x>W) l.vx*=-1; if(l.y<0 || l.y>H) l.vy*=-1;
-      const g = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r);
-      g.addColorStop(0, l.c + Math.round(l.o*255).toString(16).padStart(2,'0'));
-      g.addColorStop(1, 'transparent');
-      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
-    });
+      if(l.x < 0 || l.x > W) l.vx *= -1;
+      if(l.y < 0 || l.y > H) l.vy *= -1;
 
-    streaks.forEach((s,i)=>{
-      const oy=Math.sin(t+i*1.1)*14,a=s.alpha*(0.6+0.4*Math.sin(t*.7+i));
-      const sx=s.x+Math.cos(s.angle)*(-s.len/2),sy=s.y+oy+Math.sin(s.angle)*(-s.len/2);
-      const ex=s.x+Math.cos(s.angle)*(s.len/2),ey=s.y+oy+Math.sin(s.angle)*(s.len/2);
-      const hex=Math.round(a*255).toString(16).padStart(2,'0');
-      const gr=ctx.createLinearGradient(sx,sy,ex,ey);
-      gr.addColorStop(0,'transparent');gr.addColorStop(.4,s.color+hex);gr.addColorStop(.6,s.color+hex);gr.addColorStop(1,'transparent');
-      ctx.save();ctx.strokeStyle=gr;ctx.lineWidth=1.2+Math.sin(t+i)*.4;ctx.shadowColor=s.color;ctx.shadowBlur=6;
-      ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();ctx.restore();
-    });
+      const r = l.r;
+      const g = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, r);
+      g.addColorStop(0, `rgba(${l.rgb},${l.o})`);
+      g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g;
+      ctx.fillRect(l.x - r, l.y - r, r * 2, r * 2);
+    }
+
+    // Streaks - manual shadowBlur reset, pre-calculated trig and rgb
+    for(let i=0; i<streaks.length; i++){
+      const s = streaks[i];
+      const oy = Math.sin(t + i * 1.1) * 14;
+      const a = s.alpha * (0.6 + 0.4 * Math.sin(t * .7 + i));
+      const hl = s.halfLen;
+      const cosA = s.cosAngle;
+      const sinA = s.sinAngle;
+      const sx = s.x - cosA * hl;
+      const sy = s.y + oy - sinA * hl;
+      const ex = s.x + cosA * hl;
+      const ey = s.y + oy + sinA * hl;
+
+      const gr = ctx.createLinearGradient(sx, sy, ex, ey);
+      const rgbaStr = `rgba(${s.rgb},${a})`;
+      gr.addColorStop(0, 'transparent');
+      gr.addColorStop(.4, rgbaStr);
+      gr.addColorStop(.6, rgbaStr);
+      gr.addColorStop(1, 'transparent');
+
+      ctx.strokeStyle = gr;
+      ctx.lineWidth = 1.2 + Math.sin(t + i) * .4;
+      ctx.shadowColor = s.color;
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
     requestAnimationFrame(draw);
   }
   draw();
@@ -1090,25 +1144,55 @@ function toggleFaq(btn){
   item.classList.toggle('open');
 }
 
-/* ── Nav active link on scroll & Glass Effect ── */
-const sections=document.querySelectorAll('section[id]');
-const navLinks=document.querySelectorAll('.nav-links a');
+/* BOLT: Optimized scroll event handler - cached section offsets and state-guarded style writes */
+let cachedSections = [];
+const navLinks = document.querySelectorAll('.nav-links a');
 const nav = document.querySelector('nav');
-window.addEventListener('scroll',()=>{
-  let cur='';
-  sections.forEach(s=>{if(window.scrollY>=s.offsetTop-120)cur=s.id;});
-  navLinks.forEach(a=>{a.style.color=a.getAttribute('href')==='#'+cur?'var(--cyan)':'';});
+let currentActiveId = null;
+let currentIsScrolled = null;
 
-  if(window.scrollY > 50) {
-    nav.style.background = 'rgba(3,5,11,.9)';
-    nav.style.height = '60px';
-    nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
-  } else {
-    nav.style.background = 'rgba(3,5,11,.85)';
-    nav.style.height = '64px';
-    nav.style.borderBottom = '1px solid var(--border)';
+function updateCachedSections() {
+  cachedSections = Array.from(document.querySelectorAll('section[id]')).map(s => ({
+    id: s.id,
+    top: s.offsetTop
+  }));
+}
+
+window.addEventListener('load', updateCachedSections);
+window.addEventListener('resize', updateCachedSections);
+
+window.addEventListener('scroll', () => {
+  const scrollY = window.scrollY;
+  let cur = '';
+
+  for (let i = 0; i < cachedSections.length; i++) {
+    if (scrollY >= cachedSections[i].top - 120) {
+      cur = cachedSections[i].id;
+    }
   }
-},{passive:true});
+
+  if (cur !== currentActiveId) {
+    currentActiveId = cur;
+    for (let i = 0; i < navLinks.length; i++) {
+      const a = navLinks[i];
+      a.style.color = a.getAttribute('href') === '#' + cur ? 'var(--cyan)' : '';
+    }
+  }
+
+  const isScrolled = scrollY > 50;
+  if (isScrolled !== currentIsScrolled) {
+    currentIsScrolled = isScrolled;
+    if (isScrolled) {
+      nav.style.background = 'rgba(3,5,11,.9)';
+      nav.style.height = '60px';
+      nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
+    } else {
+      nav.style.background = 'rgba(3,5,11,.85)';
+      nav.style.height = '64px';
+      nav.style.borderBottom = '1px solid var(--border)';
+    }
+  }
+}, { passive: true });
 
 /* ── Smooth close mobile on link ── */
 document.querySelectorAll('.mobile-menu a[href^="#"]').forEach(a=>{
