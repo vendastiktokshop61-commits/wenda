@@ -1019,35 +1019,62 @@ footer{
   let W,H,t=0;
   const streaks=[];
   const lights=[];
+
+  // BOLT: Lookup table for 0-255 hex strings to prevent toString(16) allocation in animation loop
+  const HEX_TABLE = Array.from({length: 256}, (_, i) => i.toString(16).padStart(2, '0'));
+
   function resize(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;}
   window.addEventListener('resize',resize);resize();
 
-  for(let i=0;i<8;i++) streaks.push({x:Math.random()*W,y:H*.4+(Math.random()-.5)*H*.3,len:200+Math.random()*600,angle:-.06+(Math.random()-.5)*.05,color:Math.random()<.5?'#25F4EE':'#FE2C55',alpha:.04+Math.random()*.08});
+  for(let i=0;i<8;i++) {
+    const angle = -.06+(Math.random()-.5)*.05;
+    const len = 200+Math.random()*600;
+    const halfLen = len / 2;
+    // BOLT: Pre-calculate trigonometric components and half-length offsets
+    streaks.push({
+      x: Math.random()*W,
+      y: H*.4+(Math.random()-.5)*H*.3,
+      color: Math.random()<.5?'#25F4EE':'#FE2C55',
+      alpha: .04+Math.random()*.08,
+      halfLenCos: halfLen * Math.cos(angle),
+      halfLenSin: halfLen * Math.sin(angle)
+    });
+  }
+
   for(let i=0;i<4;i++) lights.push({x:Math.random()*W,y:Math.random()*H,r:150+Math.random()*300,c:Math.random()<.5?'#25F4EE':'#FE2C55',o:Math.random()*.03+0.02,vx:(Math.random()-.5)*.5,vy:(Math.random()-.5)*.5});
 
   function draw(){
     ctx.clearRect(0,0,W,H);t+=.002;
 
     // Animated ambient lights
+    // BOLT: Localized fillRect to light bounding box (x-r, y-r, 2r, 2r) instead of full-canvas clear/overdraw
     lights.forEach(l => {
       l.x += l.vx; l.y += l.vy;
       if(l.x<0 || l.x>W) l.vx*=-1; if(l.y<0 || l.y>H) l.vy*=-1;
       const g = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r);
-      g.addColorStop(0, l.c + Math.round(l.o*255).toString(16).padStart(2,'0'));
+      const alphaIdx = Math.min(255, Math.max(0, Math.floor(l.o * 255)));
+      g.addColorStop(0, l.c + HEX_TABLE[alphaIdx]);
       g.addColorStop(1, 'transparent');
-      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle = g;
+      ctx.fillRect(l.x - l.r, l.y - l.r, l.r * 2, l.r * 2);
     });
 
+    // BOLT: Remove ctx.save() and ctx.restore() overhead in loop by setting state and resetting shadowBlur at end
+    ctx.shadowBlur = 6;
     streaks.forEach((s,i)=>{
       const oy=Math.sin(t+i*1.1)*14,a=s.alpha*(0.6+0.4*Math.sin(t*.7+i));
-      const sx=s.x+Math.cos(s.angle)*(-s.len/2),sy=s.y+oy+Math.sin(s.angle)*(-s.len/2);
-      const ex=s.x+Math.cos(s.angle)*(s.len/2),ey=s.y+oy+Math.sin(s.angle)*(s.len/2);
-      const hex=Math.round(a*255).toString(16).padStart(2,'0');
+      const sx=s.x - s.halfLenCos, sy=s.y + oy - s.halfLenSin;
+      const ex=s.x + s.halfLenCos, ey=s.y + oy + s.halfLenSin;
+      const alphaIdx = Math.min(255, Math.max(0, Math.floor(a * 255)));
+      const hex = HEX_TABLE[alphaIdx];
       const gr=ctx.createLinearGradient(sx,sy,ex,ey);
       gr.addColorStop(0,'transparent');gr.addColorStop(.4,s.color+hex);gr.addColorStop(.6,s.color+hex);gr.addColorStop(1,'transparent');
-      ctx.save();ctx.strokeStyle=gr;ctx.lineWidth=1.2+Math.sin(t+i)*.4;ctx.shadowColor=s.color;ctx.shadowBlur=6;
-      ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();ctx.restore();
+      ctx.strokeStyle=gr;
+      ctx.lineWidth=1.2+Math.sin(t+i)*.4;
+      ctx.shadowColor=s.color;
+      ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();
     });
+    ctx.shadowBlur = 0;
     requestAnimationFrame(draw);
   }
   draw();
@@ -1091,22 +1118,56 @@ function toggleFaq(btn){
 }
 
 /* ── Nav active link on scroll & Glass Effect ── */
-const sections=document.querySelectorAll('section[id]');
+// BOLT: Cache section offsets and nav elements to prevent layout reflows during scroll handling
 const navLinks=document.querySelectorAll('.nav-links a');
 const nav = document.querySelector('nav');
-window.addEventListener('scroll',()=>{
-  let cur='';
-  sections.forEach(s=>{if(window.scrollY>=s.offsetTop-120)cur=s.id;});
-  navLinks.forEach(a=>{a.style.color=a.getAttribute('href')==='#'+cur?'var(--cyan)':'';});
+let cachedSections = [];
 
-  if(window.scrollY > 50) {
-    nav.style.background = 'rgba(3,5,11,.9)';
-    nav.style.height = '60px';
-    nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
-  } else {
-    nav.style.background = 'rgba(3,5,11,.85)';
-    nav.style.height = '64px';
-    nav.style.borderBottom = '1px solid var(--border)';
+function cacheSectionOffsets() {
+  cachedSections = Array.from(document.querySelectorAll('section[id]')).map(s => ({
+    id: s.id,
+    top: s.offsetTop
+  }));
+}
+
+window.addEventListener('resize', cacheSectionOffsets);
+window.addEventListener('load', cacheSectionOffsets);
+cacheSectionOffsets();
+
+let isScrolledPast50 = false;
+let currentActiveId = null;
+
+window.addEventListener('scroll',()=>{
+  const scrollY = window.scrollY;
+  let cur='';
+  for (let i = 0; i < cachedSections.length; i++) {
+    if (scrollY >= cachedSections[i].top - 120) {
+      cur = cachedSections[i].id;
+    }
+  }
+
+  // BOLT: State guard DOM style updates for nav links to prevent unnecessary style recalculations
+  if (cur !== currentActiveId) {
+    currentActiveId = cur;
+    const targetHref = '#' + cur;
+    navLinks.forEach(a => {
+      a.style.color = a.getAttribute('href') === targetHref ? 'var(--cyan)' : '';
+    });
+  }
+
+  // BOLT: State guard DOM style updates for navbar background & height
+  const shouldBeScrolled = scrollY > 50;
+  if (shouldBeScrolled !== isScrolledPast50) {
+    isScrolledPast50 = shouldBeScrolled;
+    if (shouldBeScrolled) {
+      nav.style.background = 'rgba(3,5,11,.9)';
+      nav.style.height = '60px';
+      nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
+    } else {
+      nav.style.background = 'rgba(3,5,11,.85)';
+      nav.style.height = '64px';
+      nav.style.borderBottom = '1px solid var(--border)';
+    }
   }
 },{passive:true});
 
