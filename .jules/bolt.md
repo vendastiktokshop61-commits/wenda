@@ -1,0 +1,3 @@
+## 2026-08-13 - Canvas Fill Bounds & Scroll Reflow Elimination
+**Learning:** Filling the entire canvas viewport (0,0,W,H) with radial gradients on every frame causes heavy off-bounds pixel rendering overhead. In scroll event handlers, reading `offsetTop` directly from DOM nodes during scrolling forces layout reflows, and updating DOM element inline styles on every scroll event causes unnecessary style thrashing.
+**Action:** Always localize radial gradient `fillRect` calls to their bounding box `(x - r, y - r, 2r, 2r)`, pre-calculate trigonometric values and color representations, cache section vertical offsets on page load/resize, and state-guard DOM style updates in scroll handlers.
