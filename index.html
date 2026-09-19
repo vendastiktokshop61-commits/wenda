@@ -1014,40 +1014,78 @@ footer{
 
 <script>
 /* ── Canvas background ── */
+// BOLT: Optimized bgCanvas animation loop by localizing radial gradient fillRects to bounding boxes,
+// pre-calculating trig parameters and hex lookups, and replacing save/restore calls with manual resets.
 (function(){
   const c=document.getElementById('bgCanvas'),ctx=c.getContext('2d');
   let W,H,t=0;
   const streaks=[];
   const lights=[];
+
+  // Pre-calculated hex lookup table for alpha values (0 to 255)
+  const HEX_TABLE = new Array(256);
+  for(let i=0; i<256; i++) {
+    HEX_TABLE[i] = i.toString(16).padStart(2, '0');
+  }
+
   function resize(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;}
   window.addEventListener('resize',resize);resize();
 
-  for(let i=0;i<8;i++) streaks.push({x:Math.random()*W,y:H*.4+(Math.random()-.5)*H*.3,len:200+Math.random()*600,angle:-.06+(Math.random()-.5)*.05,color:Math.random()<.5?'#25F4EE':'#FE2C55',alpha:.04+Math.random()*.08});
+  for(let i=0;i<8;i++) {
+    const angle = -.06+(Math.random()-.5)*.05;
+    streaks.push({
+      x:Math.random()*W,
+      y:H*.4+(Math.random()-.5)*H*.3,
+      len:200+Math.random()*600,
+      angle:angle,
+      cosAngle:Math.cos(angle),
+      sinAngle:Math.sin(angle),
+      color:Math.random()<.5?'#25F4EE':'#FE2C55',
+      alpha:.04+Math.random()*.08
+    });
+  }
   for(let i=0;i<4;i++) lights.push({x:Math.random()*W,y:Math.random()*H,r:150+Math.random()*300,c:Math.random()<.5?'#25F4EE':'#FE2C55',o:Math.random()*.03+0.02,vx:(Math.random()-.5)*.5,vy:(Math.random()-.5)*.5});
 
   function draw(){
     ctx.clearRect(0,0,W,H);t+=.002;
 
     // Animated ambient lights
-    lights.forEach(l => {
+    for(let i=0; i<lights.length; i++){
+      const l = lights[i];
       l.x += l.vx; l.y += l.vy;
       if(l.x<0 || l.x>W) l.vx*=-1; if(l.y<0 || l.y>H) l.vy*=-1;
       const g = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r);
-      g.addColorStop(0, l.c + Math.round(l.o*255).toString(16).padStart(2,'0'));
+      const alphaIdx = (l.o * 255) | 0;
+      g.addColorStop(0, l.c + HEX_TABLE[alphaIdx < 0 ? 0 : (alphaIdx > 255 ? 255 : alphaIdx)]);
       g.addColorStop(1, 'transparent');
-      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
-    });
+      ctx.fillStyle = g;
+      // BOLT: Localize fillRect to light bounding box instead of full viewport W x H
+      const r = l.r;
+      ctx.fillRect(l.x - r, l.y - r, r * 2, r * 2);
+    }
 
-    streaks.forEach((s,i)=>{
-      const oy=Math.sin(t+i*1.1)*14,a=s.alpha*(0.6+0.4*Math.sin(t*.7+i));
-      const sx=s.x+Math.cos(s.angle)*(-s.len/2),sy=s.y+oy+Math.sin(s.angle)*(-s.len/2);
-      const ex=s.x+Math.cos(s.angle)*(s.len/2),ey=s.y+oy+Math.sin(s.angle)*(s.len/2);
-      const hex=Math.round(a*255).toString(16).padStart(2,'0');
+    ctx.shadowBlur = 6;
+    for(let i=0; i<streaks.length; i++){
+      const s = streaks[i];
+      const oy=Math.sin(t+i*1.1)*14, a=s.alpha*(0.6+0.4*Math.sin(t*.7+i));
+      const halfLen = s.len * 0.5;
+      const dx = s.cosAngle * halfLen;
+      const dy = s.sinAngle * halfLen;
+      const sx=s.x - dx, sy=s.y + oy - dy;
+      const ex=s.x + dx, ey=s.y + oy + dy;
+      const alphaIdx = (a * 255) | 0;
+      const hex = HEX_TABLE[alphaIdx < 0 ? 0 : (alphaIdx > 255 ? 255 : alphaIdx)];
       const gr=ctx.createLinearGradient(sx,sy,ex,ey);
-      gr.addColorStop(0,'transparent');gr.addColorStop(.4,s.color+hex);gr.addColorStop(.6,s.color+hex);gr.addColorStop(1,'transparent');
-      ctx.save();ctx.strokeStyle=gr;ctx.lineWidth=1.2+Math.sin(t+i)*.4;ctx.shadowColor=s.color;ctx.shadowBlur=6;
-      ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();ctx.restore();
-    });
+      const colorHex = s.color + hex;
+      gr.addColorStop(0,'transparent');gr.addColorStop(.4,colorHex);gr.addColorStop(.6,colorHex);gr.addColorStop(1,'transparent');
+
+      // BOLT: Manual state configuration avoiding ctx.save() and ctx.restore() overhead
+      ctx.strokeStyle=gr;
+      ctx.lineWidth=1.2+Math.sin(t+i)*.4;
+      ctx.shadowColor=s.color;
+      ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
     requestAnimationFrame(draw);
   }
   draw();
@@ -1091,24 +1129,56 @@ function toggleFaq(btn){
 }
 
 /* ── Nav active link on scroll & Glass Effect ── */
-const sections=document.querySelectorAll('section[id]');
-const navLinks=document.querySelectorAll('.nav-links a');
-const nav = document.querySelector('nav');
-window.addEventListener('scroll',()=>{
-  let cur='';
-  sections.forEach(s=>{if(window.scrollY>=s.offsetTop-120)cur=s.id;});
-  navLinks.forEach(a=>{a.style.color=a.getAttribute('href')==='#'+cur?'var(--cyan)':'';});
+// BOLT: Optimized scroll event handling by caching section offsets and state-guarding style updates
+(function(){
+  const sections=Array.from(document.querySelectorAll('section[id]'));
+  const navLinks=Array.from(document.querySelectorAll('.nav-links a'));
+  const nav = document.querySelector('nav');
 
-  if(window.scrollY > 50) {
-    nav.style.background = 'rgba(3,5,11,.9)';
-    nav.style.height = '60px';
-    nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
-  } else {
-    nav.style.background = 'rgba(3,5,11,.85)';
-    nav.style.height = '64px';
-    nav.style.borderBottom = '1px solid var(--border)';
+  let cachedOffsets = [];
+  function updateOffsets() {
+    cachedOffsets = sections.map(s => ({ id: s.id, offsetTop: s.offsetTop }));
   }
-},{passive:true});
+  window.addEventListener('load', updateOffsets);
+  window.addEventListener('resize', updateOffsets);
+  updateOffsets();
+
+  let currentActiveId = null;
+  let isScrolled = null;
+
+  window.addEventListener('scroll',()=>{
+    const scrollY = window.scrollY;
+    let cur = '';
+    for (let i = 0; i < cachedOffsets.length; i++) {
+      if (scrollY >= cachedOffsets[i].offsetTop - 120) {
+        cur = cachedOffsets[i].id;
+      }
+    }
+
+    if (cur !== currentActiveId) {
+      currentActiveId = cur;
+      const targetHref = '#' + cur;
+      for (let i = 0; i < navLinks.length; i++) {
+        const a = navLinks[i];
+        a.style.color = a.getAttribute('href') === targetHref ? 'var(--cyan)' : '';
+      }
+    }
+
+    const nextIsScrolled = scrollY > 50;
+    if (nextIsScrolled !== isScrolled) {
+      isScrolled = nextIsScrolled;
+      if (isScrolled) {
+        nav.style.background = 'rgba(3,5,11,.9)';
+        nav.style.height = '60px';
+        nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
+      } else {
+        nav.style.background = 'rgba(3,5,11,.85)';
+        nav.style.height = '64px';
+        nav.style.borderBottom = '1px solid var(--border)';
+      }
+    }
+  },{passive:true});
+})();
 
 /* ── Smooth close mobile on link ── */
 document.querySelectorAll('.mobile-menu a[href^="#"]').forEach(a=>{
