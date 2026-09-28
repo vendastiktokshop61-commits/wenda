@@ -1,0 +1,3 @@
+## 2026-09-28 - Localized Radial Fills and Cached Layout Offsets
+**Learning:** Pre-calculating streak trigonometric properties (`cosAngle`, `sinAngle`, `halfLen`), pre-formatting opacity hex values, localizing canvas `fillRect` bounds to light radiuses instead of full-canvas fills, eliminating `ctx.save()`/`ctx.restore()` in render loops, caching section vertical offsets (`offsetTop`), and state-guarding DOM mutations dramatically boosts animation and scroll FPS.
+**Action:** Always check canvas rendering loops for full-viewport overdraw and un-cached layout property reads in scroll event listeners.

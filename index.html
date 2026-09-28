@@ -1013,7 +1013,7 @@ footer{
 </footer>
 
 <script>
-/* ── Canvas background ── */
+/* ── Canvas background (Optimized) ── */
 (function(){
   const c=document.getElementById('bgCanvas'),ctx=c.getContext('2d');
   let W,H,t=0;
@@ -1022,32 +1022,52 @@ footer{
   function resize(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;}
   window.addEventListener('resize',resize);resize();
 
-  for(let i=0;i<8;i++) streaks.push({x:Math.random()*W,y:H*.4+(Math.random()-.5)*H*.3,len:200+Math.random()*600,angle:-.06+(Math.random()-.5)*.05,color:Math.random()<.5?'#25F4EE':'#FE2C55',alpha:.04+Math.random()*.08});
-  for(let i=0;i<4;i++) lights.push({x:Math.random()*W,y:Math.random()*H,r:150+Math.random()*300,c:Math.random()<.5?'#25F4EE':'#FE2C55',o:Math.random()*.03+0.02,vx:(Math.random()-.5)*.5,vy:(Math.random()-.5)*.5});
+  // Performance optimization: Pre-calculate static trigonometric properties and opacity hex strings
+  for(let i=0;i<8;i++) {
+    const len=200+Math.random()*600, angle=-.06+(Math.random()-.5)*.05;
+    streaks.push({
+      x:Math.random()*W,y:H*.4+(Math.random()-.5)*H*.3,len,angle,
+      cosAngle:Math.cos(angle), sinAngle:Math.sin(angle), halfLen:len/2,
+      color:Math.random()<.5?'#25F4EE':'#FE2C55',alpha:.04+Math.random()*.08
+    });
+  }
+  for(let i=0;i<4;i++) {
+    const o=Math.random()*.03+0.02;
+    lights.push({
+      x:Math.random()*W,y:Math.random()*H,r:150+Math.random()*300,
+      c:Math.random()<.5?'#25F4EE':'#FE2C55',o,
+      alphaHex:Math.round(o*255).toString(16).padStart(2,'0'),
+      vx:(Math.random()-.5)*.5,vy:(Math.random()-.5)*.5
+    });
+  }
 
   function draw(){
     ctx.clearRect(0,0,W,H);t+=.002;
 
-    // Animated ambient lights
+    // Animated ambient lights - localized fillRect to bounding circle avoids full-screen overdraw
     lights.forEach(l => {
       l.x += l.vx; l.y += l.vy;
       if(l.x<0 || l.x>W) l.vx*=-1; if(l.y<0 || l.y>H) l.vy*=-1;
       const g = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r);
-      g.addColorStop(0, l.c + Math.round(l.o*255).toString(16).padStart(2,'0'));
+      g.addColorStop(0, l.c + l.alphaHex);
       g.addColorStop(1, 'transparent');
-      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle = g;
+      ctx.fillRect(l.x - l.r, l.y - l.r, l.r * 2, l.r * 2);
     });
 
+    // Draw streaks - avoid expensive save()/restore() state context switching
     streaks.forEach((s,i)=>{
       const oy=Math.sin(t+i*1.1)*14,a=s.alpha*(0.6+0.4*Math.sin(t*.7+i));
-      const sx=s.x+Math.cos(s.angle)*(-s.len/2),sy=s.y+oy+Math.sin(s.angle)*(-s.len/2);
-      const ex=s.x+Math.cos(s.angle)*(s.len/2),ey=s.y+oy+Math.sin(s.angle)*(s.len/2);
+      const dx=s.cosAngle*s.halfLen, dy=s.sinAngle*s.halfLen;
+      const sx=s.x-dx, sy=s.y+oy-dy;
+      const ex=s.x+dx, ey=s.y+oy+dy;
       const hex=Math.round(a*255).toString(16).padStart(2,'0');
       const gr=ctx.createLinearGradient(sx,sy,ex,ey);
       gr.addColorStop(0,'transparent');gr.addColorStop(.4,s.color+hex);gr.addColorStop(.6,s.color+hex);gr.addColorStop(1,'transparent');
-      ctx.save();ctx.strokeStyle=gr;ctx.lineWidth=1.2+Math.sin(t+i)*.4;ctx.shadowColor=s.color;ctx.shadowBlur=6;
-      ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();ctx.restore();
+      ctx.strokeStyle=gr;ctx.lineWidth=1.2+Math.sin(t+i)*.4;ctx.shadowColor=s.color;ctx.shadowBlur=6;
+      ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();
     });
+    ctx.shadowBlur=0; // Reset shadow state manually instead of save/restore
     requestAnimationFrame(draw);
   }
   draw();
@@ -1090,25 +1110,54 @@ function toggleFaq(btn){
   item.classList.toggle('open');
 }
 
-/* ── Nav active link on scroll & Glass Effect ── */
-const sections=document.querySelectorAll('section[id]');
-const navLinks=document.querySelectorAll('.nav-links a');
-const nav = document.querySelector('nav');
-window.addEventListener('scroll',()=>{
-  let cur='';
-  sections.forEach(s=>{if(window.scrollY>=s.offsetTop-120)cur=s.id;});
-  navLinks.forEach(a=>{a.style.color=a.getAttribute('href')==='#'+cur?'var(--cyan)':'';});
+/* ── Nav active link on scroll & Glass Effect (Optimized) ── */
+let cachedSections = [];
+function cacheSectionOffsets() {
+  cachedSections = Array.from(document.querySelectorAll('section[id]')).map(s => ({
+    id: s.id,
+    offsetTop: s.offsetTop
+  }));
+}
+cacheSectionOffsets();
+window.addEventListener('resize', cacheSectionOffsets);
 
-  if(window.scrollY > 50) {
-    nav.style.background = 'rgba(3,5,11,.9)';
-    nav.style.height = '60px';
-    nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
-  } else {
-    nav.style.background = 'rgba(3,5,11,.85)';
-    nav.style.height = '64px';
-    nav.style.borderBottom = '1px solid var(--border)';
+const navLinks = document.querySelectorAll('.nav-links a');
+const nav = document.querySelector('nav');
+let currentActiveId = null;
+let currentScrolledState = null;
+
+window.addEventListener('scroll', () => {
+  const scrollY = window.scrollY;
+  let cur = '';
+  for (let i = 0; i < cachedSections.length; i++) {
+    if (scrollY >= cachedSections[i].offsetTop - 120) {
+      cur = cachedSections[i].id;
+    }
   }
-},{passive:true});
+
+  // Guard active link updates to avoid unnecessary DOM mutations
+  if (cur !== currentActiveId) {
+    currentActiveId = cur;
+    navLinks.forEach(a => {
+      a.style.color = a.getAttribute('href') === '#' + cur ? 'var(--cyan)' : '';
+    });
+  }
+
+  // Guard navbar styling writes on scroll
+  const isScrolled = scrollY > 50;
+  if (isScrolled !== currentScrolledState) {
+    currentScrolledState = isScrolled;
+    if (isScrolled) {
+      nav.style.background = 'rgba(3,5,11,.9)';
+      nav.style.height = '60px';
+      nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
+    } else {
+      nav.style.background = 'rgba(3,5,11,.85)';
+      nav.style.height = '64px';
+      nav.style.borderBottom = '1px solid var(--border)';
+    }
+  }
+}, { passive: true });
 
 /* ── Smooth close mobile on link ── */
 document.querySelectorAll('.mobile-menu a[href^="#"]').forEach(a=>{
