@@ -1,0 +1,3 @@
+## 2026-09-30 - Canvas and Scroll Optimization in landing page
+**Learning:** Filling full canvas dimensions (`0, 0, W, H`) for localized radial gradients causes massive overdraw. Localizing fillRect to `[x - r, y - r, 2*r, 2*r]` eliminates redundant fill ops. Pre-calculating hex strings via a 256-entry lookup table and caching DOM layout properties (`offsetTop`) outside scroll event listeners prevents GC pressure and layout thrashing.
+**Action:** When working on HTML canvas or scroll listeners, always localize gradient bounds, use lookup tables for string conversions, and state-guard inline DOM style writes.

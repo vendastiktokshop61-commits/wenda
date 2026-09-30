@@ -1019,35 +1019,89 @@ footer{
   let W,H,t=0;
   const streaks=[];
   const lights=[];
-  function resize(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;}
-  window.addEventListener('resize',resize);resize();
 
-  for(let i=0;i<8;i++) streaks.push({x:Math.random()*W,y:H*.4+(Math.random()-.5)*H*.3,len:200+Math.random()*600,angle:-.06+(Math.random()-.5)*.05,color:Math.random()<.5?'#25F4EE':'#FE2C55',alpha:.04+Math.random()*.08});
-  for(let i=0;i<4;i++) lights.push({x:Math.random()*W,y:Math.random()*H,r:150+Math.random()*300,c:Math.random()<.5?'#25F4EE':'#FE2C55',o:Math.random()*.03+0.02,vx:(Math.random()-.5)*.5,vy:(Math.random()-.5)*.5});
+  // Optimization: Lookup table for 2-digit hex opacity values (0-255) to eliminate toString/padStart allocations per frame
+  const HEX_TABLE = new Array(256);
+  for (let i = 0; i < 256; i++) {
+    HEX_TABLE[i] = i.toString(16).padStart(2, '0');
+  }
+
+  function resize(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;}
+  window.addEventListener('resize',resize, {passive: true});resize();
+
+  for(let i=0;i<8;i++){
+    const len=200+Math.random()*600;
+    const angle=-.06+(Math.random()-.5)*.05;
+    const halfLen=len/2;
+    // Pre-calculate trigonometric parameters for streak offsets
+    streaks.push({
+      x:Math.random()*W,
+      y:H*.4+(Math.random()-.5)*H*.3,
+      len:len,
+      angle:angle,
+      color:Math.random()<.5?'#25F4EE':'#FE2C55',
+      alpha:.04+Math.random()*.08,
+      dx: Math.cos(angle) * halfLen,
+      dy: Math.sin(angle) * halfLen
+    });
+  }
+
+  for(let i=0;i<4;i++){
+    const color = Math.random()<.5?'#25F4EE':'#FE2C55';
+    const opacity = Math.random()*.03+0.02;
+    const alphaHex = HEX_TABLE[Math.min(255, Math.max(0, Math.round(opacity * 255)))];
+    // Pre-calculate color hex string for stop 0 to avoid string formatting in animation loop
+    lights.push({
+      x:Math.random()*W,
+      y:Math.random()*H,
+      r:150+Math.random()*300,
+      c:color,
+      cStop0: color + alphaHex,
+      vx:(Math.random()-.5)*.5,
+      vy:(Math.random()-.5)*.5
+    });
+  }
 
   function draw(){
     ctx.clearRect(0,0,W,H);t+=.002;
 
     // Animated ambient lights
+    // Optimization: Localized radial gradient fillRect to bounding box rather than full WxH canvas to eliminate overdraw
     lights.forEach(l => {
       l.x += l.vx; l.y += l.vy;
       if(l.x<0 || l.x>W) l.vx*=-1; if(l.y<0 || l.y>H) l.vy*=-1;
       const g = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r);
-      g.addColorStop(0, l.c + Math.round(l.o*255).toString(16).padStart(2,'0'));
+      g.addColorStop(0, l.cStop0);
       g.addColorStop(1, 'transparent');
-      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle = g;
+      ctx.fillRect(l.x - l.r, l.y - l.r, l.r * 2, l.r * 2);
     });
 
+    // Optimization: Removed ctx.save() / ctx.restore() context state stack overhead inside loop, replaced with explicit shadowBlur reset
+    ctx.shadowBlur = 6;
     streaks.forEach((s,i)=>{
-      const oy=Math.sin(t+i*1.1)*14,a=s.alpha*(0.6+0.4*Math.sin(t*.7+i));
-      const sx=s.x+Math.cos(s.angle)*(-s.len/2),sy=s.y+oy+Math.sin(s.angle)*(-s.len/2);
-      const ex=s.x+Math.cos(s.angle)*(s.len/2),ey=s.y+oy+Math.sin(s.angle)*(s.len/2);
-      const hex=Math.round(a*255).toString(16).padStart(2,'0');
+      const oy=Math.sin(t+i*1.1)*14;
+      const aVal = s.alpha * (0.6 + 0.4 * Math.sin(t * .7 + i));
+      const aIdx = Math.min(255, Math.max(0, (aVal * 255) | 0));
+      const hex = HEX_TABLE[aIdx];
+
+      const sx = s.x - s.dx, sy = s.y + oy - s.dy;
+      const ex = s.x + s.dx, ey = s.y + oy + s.dy;
+
       const gr=ctx.createLinearGradient(sx,sy,ex,ey);
-      gr.addColorStop(0,'transparent');gr.addColorStop(.4,s.color+hex);gr.addColorStop(.6,s.color+hex);gr.addColorStop(1,'transparent');
-      ctx.save();ctx.strokeStyle=gr;ctx.lineWidth=1.2+Math.sin(t+i)*.4;ctx.shadowColor=s.color;ctx.shadowBlur=6;
-      ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();ctx.restore();
+      const strokeColor = s.color + hex;
+      gr.addColorStop(0,'transparent');
+      gr.addColorStop(.4, strokeColor);
+      gr.addColorStop(.6, strokeColor);
+      gr.addColorStop(1,'transparent');
+
+      ctx.strokeStyle=gr;
+      ctx.lineWidth=1.2+Math.sin(t+i)*.4;
+      ctx.shadowColor=s.color;
+      ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();
     });
+    ctx.shadowBlur = 0;
+
     requestAnimationFrame(draw);
   }
   draw();
@@ -1091,24 +1145,61 @@ function toggleFaq(btn){
 }
 
 /* ── Nav active link on scroll & Glass Effect ── */
-const sections=document.querySelectorAll('section[id]');
-const navLinks=document.querySelectorAll('.nav-links a');
-const nav = document.querySelector('nav');
-window.addEventListener('scroll',()=>{
-  let cur='';
-  sections.forEach(s=>{if(window.scrollY>=s.offsetTop-120)cur=s.id;});
-  navLinks.forEach(a=>{a.style.color=a.getAttribute('href')==='#'+cur?'var(--cyan)':'';});
+// Optimization: Cache section vertical offsets and state-guard DOM style mutations on scroll to prevent layout reflows and DOM thrashing
+let sectionOffsets = [];
+function updateSectionOffsets() {
+  sectionOffsets = Array.from(document.querySelectorAll('section[id]')).map(s => ({
+    id: s.id,
+    top: s.offsetTop - 120
+  }));
+}
+window.addEventListener('resize', updateSectionOffsets, { passive: true });
+window.addEventListener('load', updateSectionOffsets, { passive: true });
+updateSectionOffsets();
 
-  if(window.scrollY > 50) {
-    nav.style.background = 'rgba(3,5,11,.9)';
-    nav.style.height = '60px';
-    nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
-  } else {
-    nav.style.background = 'rgba(3,5,11,.85)';
-    nav.style.height = '64px';
-    nav.style.borderBottom = '1px solid var(--border)';
+let currentNavId = '';
+let isNavScrolled = false;
+const nav = document.querySelector('nav');
+const navLinksMap = new Map();
+document.querySelectorAll('.nav-links a').forEach(a => {
+  const href = a.getAttribute('href');
+  if (href) navLinksMap.set(href, a);
+});
+
+window.addEventListener('scroll', () => {
+  const scrollY = window.scrollY;
+  let cur = '';
+  for (let i = sectionOffsets.length - 1; i >= 0; i--) {
+    if (scrollY >= sectionOffsets[i].top) {
+      cur = sectionOffsets[i].id;
+      break;
+    }
   }
-},{passive:true});
+
+  if (cur !== currentNavId) {
+    if (currentNavId && navLinksMap.has('#' + currentNavId)) {
+      navLinksMap.get('#' + currentNavId).style.color = '';
+    }
+    if (cur && navLinksMap.has('#' + cur)) {
+      navLinksMap.get('#' + cur).style.color = 'var(--cyan)';
+    }
+    currentNavId = cur;
+  }
+
+  const scrolled = scrollY > 50;
+  if (scrolled !== isNavScrolled) {
+    isNavScrolled = scrolled;
+    if (scrolled) {
+      nav.style.background = 'rgba(3,5,11,.9)';
+      nav.style.height = '60px';
+      nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
+    } else {
+      nav.style.background = 'rgba(3,5,11,.85)';
+      nav.style.height = '64px';
+      nav.style.borderBottom = '1px solid var(--border)';
+    }
+  }
+}, { passive: true });
 
 /* ── Smooth close mobile on link ── */
 document.querySelectorAll('.mobile-menu a[href^="#"]').forEach(a=>{
