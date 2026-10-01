@@ -1,0 +1,3 @@
+## 2026-08-13 - Canvas Gradient Bounding Box & Alpha Lookup Table Optimization
+**Learning:** Filling radial gradients across the full canvas (`fillRect(0, 0, W, H)`) forces per-pixel calculations across the entire viewport even when the gradient radius is localized. Bounding the fill to `(x - r, y - r, 2r, 2r)` reduces rasterization workload dramatically. Furthermore, pre-allocating a 256-entry lookup array (`HEX_TABLE`) for alpha hex strings avoids string allocation in `requestAnimationFrame` loops.
+**Action:** Always localize canvas gradient fill bounds and use lookup tables for byte-to-hex string conversions in high-frequency rendering loops.
