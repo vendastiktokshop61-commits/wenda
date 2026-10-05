@@ -1,0 +1,3 @@
+## 2025-05-18 - Canvas & Scroll Reflow Optimization in Landing Page
+**Learning:** In full-screen HTML5 canvas backgrounds and scroll handlers, significant FPS drops are caused by full-screen radial gradient fills, canvas `save()`/`restore()` state calls, per-frame alpha hex string formatting, and layout thrashing from reading `s.offsetTop` inside unthrottled scroll listeners.
+**Action:** Always localize radial gradient `fillRect` bounds to light radii, pre-calculate lookup tables for alpha hex conversion and trigonometric vector components, replace `save()`/`restore()` with direct property resets, cache section `offsetTop` values, and state-guard DOM style writes during scroll events.
