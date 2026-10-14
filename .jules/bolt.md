@@ -1,0 +1,3 @@
+## 2025-02-18 - Canvas Ambient Light Fill Bounds and Scroll State Guards
+**Learning:** Filling full canvas bounds (`0, 0, W, H`) for localized radial gradients in `requestAnimationFrame` creates unnecessary rasterization overhead. Localizing `fillRect` to bounding boxes (`x - r, y - r, 2*r, 2*r`) significantly improves render throughput. Unguarded DOM style updates and repeated `offsetTop` reads during scroll events trigger unnecessary reflows and style re-calculations; caching section vertical offsets and guarding state writes eliminates scroll jank.
+**Action:** Always constrain canvas gradient fill operations to bounding boxes and state-guard scroll listener DOM style mutations.
