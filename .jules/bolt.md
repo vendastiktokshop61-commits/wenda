@@ -1,0 +1,3 @@
+## 2025-10-16 - Localizing Canvas Gradients & Caching DOM Layout Offsets
+**Learning:** Redrawing canvas radial gradients across the full viewport (`fillRect(0,0,W,H)`) for small ambient light spots causes unnecessary overdraw. Localizing `fillRect` bounds to light bounding boxes (`x - r, y - r, 2*r, 2*r`), eliminating state save/restore overhead with a single shadowBlur toggle, and avoiding repeated `offsetTop` layout thrashing in scroll handlers dramatically improves frame rates (~33 FPS to ~55-58 FPS).
+**Action:** When working with full-screen HTML5 canvas animations and scroll events, always bound radial fillRect calls, precompute lookup tables for string manipulations in the animation loop, and cache DOM element layout positions outside scroll listeners.
