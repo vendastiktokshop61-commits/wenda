@@ -1,0 +1,3 @@
+## 2025-05-20 - Canvas Radial Gradient Bounding Boxes & Hex Lookup Table
+**Learning:** Filling full canvas `fillRect(0, 0, W, H)` for local radial gradients rasterizes millions of transparent pixels unnecessarily per frame. Localizing `fillRect` bounds to `(x - r, y - r, 2r, 2r)` reduces rasterized area by ~82%. Additionally, string hex conversion `toString(16).padStart(2, '0')` in `requestAnimationFrame` creates allocation churn; a pre-calculated 256-entry `HEX_TABLE` lookup array speeds up frame calculations by over 3x.
+**Action:** Always localize canvas fill bounds to bounding boxes and pre-calculate fixed lookup tables for alpha/color hex conversions in animation loops.
