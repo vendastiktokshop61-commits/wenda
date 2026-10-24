@@ -1,0 +1,3 @@
+## 2025-02-23 - Canvas Animation & Scroll Event Optimization in landing page
+**Learning:** In canvas background animation loops, canvas context `save()`/`restore()`, unconstrained `fillRect(0, 0, W, H)` for local radial gradients, and inline string formatting (`alpha.toString(16)`) dominate loop execution time. Similarly, repeatedly reading `s.offsetTop` in scroll handlers causes DOM layout thrashing.
+**Action:** Pre-calculate fixed direction vectors and a 256-entry `HEX_TABLE` lookup array, bound gradient fills to light bounding boxes (`fillRect(l.x - l.r, l.y - l.r, l.r * 2, l.r * 2)`), reset `shadowBlur` directly instead of save/restore, and cache section layout offsets on resize/toggle.
