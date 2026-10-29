@@ -1013,41 +1013,88 @@ footer{
 </footer>
 
 <script>
-/* ── Canvas background ── */
+/* ── Canvas background (Optimized) ── */
 (function(){
   const c=document.getElementById('bgCanvas'),ctx=c.getContext('2d');
   let W,H,t=0;
   const streaks=[];
   const lights=[];
+
+  // Perf optimization: Pre-calculated 256-entry HEX lookup array for fast alpha conversion
+  const HEX_TABLE = new Array(256);
+  for (let i = 0; i < 256; i++) {
+    HEX_TABLE[i] = i.toString(16).padStart(2, '0');
+  }
+
   function resize(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;}
   window.addEventListener('resize',resize);resize();
 
-  for(let i=0;i<8;i++) streaks.push({x:Math.random()*W,y:H*.4+(Math.random()-.5)*H*.3,len:200+Math.random()*600,angle:-.06+(Math.random()-.5)*.05,color:Math.random()<.5?'#25F4EE':'#FE2C55',alpha:.04+Math.random()*.08});
+  for(let i=0;i<8;i++) {
+    const angle = -.06+(Math.random()-.5)*.05;
+    streaks.push({
+      x:Math.random()*W,
+      y:H*.4+(Math.random()-.5)*H*.3,
+      len:200+Math.random()*600,
+      angle: angle,
+      // Perf optimization: Precompute constant trigonometric vectors
+      cos: Math.cos(angle),
+      sin: Math.sin(angle),
+      color:Math.random()<.5?'#25F4EE':'#FE2C55',
+      alpha:.04+Math.random()*.08
+    });
+  }
   for(let i=0;i<4;i++) lights.push({x:Math.random()*W,y:Math.random()*H,r:150+Math.random()*300,c:Math.random()<.5?'#25F4EE':'#FE2C55',o:Math.random()*.03+0.02,vx:(Math.random()-.5)*.5,vy:(Math.random()-.5)*.5});
 
   function draw(){
     ctx.clearRect(0,0,W,H);t+=.002;
 
-    // Animated ambient lights
-    lights.forEach(l => {
+    // Perf optimization: Bounded fillRect to light source radius instead of full screen overdraw (0,0,W,H)
+    for (let i = 0; i < lights.length; i++) {
+      const l = lights[i];
       l.x += l.vx; l.y += l.vy;
-      if(l.x<0 || l.x>W) l.vx*=-1; if(l.y<0 || l.y>H) l.vy*=-1;
+      if(l.x<0 || l.x>W) l.vx*=-1;
+      if(l.y<0 || l.y>H) l.vy*=-1;
       const g = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r);
-      g.addColorStop(0, l.c + Math.round(l.o*255).toString(16).padStart(2,'0'));
+      const alphaIdx = Math.min(255, Math.max(0, Math.round(l.o * 255)));
+      g.addColorStop(0, l.c + HEX_TABLE[alphaIdx]);
       g.addColorStop(1, 'transparent');
-      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
-    });
+      ctx.fillStyle = g;
 
-    streaks.forEach((s,i)=>{
-      const oy=Math.sin(t+i*1.1)*14,a=s.alpha*(0.6+0.4*Math.sin(t*.7+i));
-      const sx=s.x+Math.cos(s.angle)*(-s.len/2),sy=s.y+oy+Math.sin(s.angle)*(-s.len/2);
-      const ex=s.x+Math.cos(s.angle)*(s.len/2),ey=s.y+oy+Math.sin(s.angle)*(s.len/2);
-      const hex=Math.round(a*255).toString(16).padStart(2,'0');
-      const gr=ctx.createLinearGradient(sx,sy,ex,ey);
-      gr.addColorStop(0,'transparent');gr.addColorStop(.4,s.color+hex);gr.addColorStop(.6,s.color+hex);gr.addColorStop(1,'transparent');
-      ctx.save();ctx.strokeStyle=gr;ctx.lineWidth=1.2+Math.sin(t+i)*.4;ctx.shadowColor=s.color;ctx.shadowBlur=6;
-      ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();ctx.restore();
-    });
+      const rx = Math.max(0, l.x - l.r);
+      const ry = Math.max(0, l.y - l.r);
+      const rw = Math.min(W - rx, l.r * 2);
+      const rh = Math.min(H - ry, l.r * 2);
+      ctx.fillRect(rx, ry, rw, rh);
+    }
+
+    // Perf optimization: Avoid save()/restore() overhead by explicitly toggling shadowBlur
+    ctx.shadowBlur = 6;
+    for (let i = 0; i < streaks.length; i++) {
+      const s = streaks[i];
+      const oy = Math.sin(t + i * 1.1) * 14;
+      const a = s.alpha * (0.6 + 0.4 * Math.sin(t * .7 + i));
+      const halfLen = s.len / 2;
+      const sx = s.x - s.cos * halfLen;
+      const sy = s.y + oy - s.sin * halfLen;
+      const ex = s.x + s.cos * halfLen;
+      const ey = s.y + oy + s.sin * halfLen;
+      const alphaIdx = Math.min(255, Math.max(0, Math.round(a * 255)));
+      const hex = HEX_TABLE[alphaIdx];
+      const gr = ctx.createLinearGradient(sx, sy, ex, ey);
+      gr.addColorStop(0, 'transparent');
+      gr.addColorStop(.4, s.color + hex);
+      gr.addColorStop(.6, s.color + hex);
+      gr.addColorStop(1, 'transparent');
+      ctx.strokeStyle = gr;
+      ctx.lineWidth = 1.2 + Math.sin(t + i) * .4;
+      ctx.shadowColor = s.color;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+
     requestAnimationFrame(draw);
   }
   draw();
@@ -1090,23 +1137,58 @@ function toggleFaq(btn){
   item.classList.toggle('open');
 }
 
-/* ── Nav active link on scroll & Glass Effect ── */
+/* ── Nav active link on scroll & Glass Effect (Optimized) ── */
 const sections=document.querySelectorAll('section[id]');
 const navLinks=document.querySelectorAll('.nav-links a');
 const nav = document.querySelector('nav');
-window.addEventListener('scroll',()=>{
-  let cur='';
-  sections.forEach(s=>{if(window.scrollY>=s.offsetTop-120)cur=s.id;});
-  navLinks.forEach(a=>{a.style.color=a.getAttribute('href')==='#'+cur?'var(--cyan)':'';});
 
-  if(window.scrollY > 50) {
-    nav.style.background = 'rgba(3,5,11,.9)';
-    nav.style.height = '60px';
-    nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
-  } else {
-    nav.style.background = 'rgba(3,5,11,.85)';
-    nav.style.height = '64px';
-    nav.style.borderBottom = '1px solid var(--border)';
+// Perf optimization: Cache section offsetTop positions and element references to avoid DOM layout thrashing during scroll
+let sectionOffsets = [];
+function updateSectionOffsets() {
+  sectionOffsets = Array.from(sections).map(s => ({
+    id: s.id,
+    top: s.offsetTop - 120
+  }));
+}
+updateSectionOffsets();
+window.addEventListener('resize', updateSectionOffsets);
+
+let activeSectionId = null;
+let isScrolledPastThreshold = null;
+
+window.addEventListener('scroll',()=>{
+  const scrollY = window.scrollY;
+
+  // Find current active section
+  let cur = '';
+  for (let i = 0; i < sectionOffsets.length; i++) {
+    if (scrollY >= sectionOffsets[i].top) {
+      cur = sectionOffsets[i].id;
+    }
+  }
+
+  // Perf optimization: State-guard active link DOM mutations
+  if (cur !== activeSectionId) {
+    activeSectionId = cur;
+    for (let i = 0; i < navLinks.length; i++) {
+      const a = navLinks[i];
+      a.style.color = a.getAttribute('href') === '#' + cur ? 'var(--cyan)' : '';
+    }
+  }
+
+  // Perf optimization: State-guard navbar glass style DOM mutations
+  const isScrolled = scrollY > 50;
+  if (isScrolled !== isScrolledPastThreshold) {
+    isScrolledPastThreshold = isScrolled;
+    if(isScrolled) {
+      nav.style.background = 'rgba(3,5,11,.9)';
+      nav.style.height = '60px';
+      nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
+    } else {
+      nav.style.background = 'rgba(3,5,11,.85)';
+      nav.style.height = '64px';
+      nav.style.borderBottom = '1px solid var(--border)';
+    }
   }
 },{passive:true});
 
