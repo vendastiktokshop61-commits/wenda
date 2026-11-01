@@ -1,0 +1,3 @@
+## 2026-04-26 - Canvas Animation Overdraw and String Conversions
+**Learning:** Background canvas animations rendering radial ambient lights with `fillRect(0,0,W,H)` incur severe raster overdraw (~88% redundant pixel fill per light), and per-frame hex formatting (`toString(16).padStart(2, '0')`) and trigonometric evaluation within `requestAnimationFrame` cause avoidable GC pressure and main-thread computation.
+**Action:** Always bound radial light fillRect calls to `[x - r, y - r, 2*r, 2*r]`, precalculate a 256-entry hex lookup table, and cache static angle projection vectors on streak objects.
