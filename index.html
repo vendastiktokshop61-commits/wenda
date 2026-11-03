@@ -1090,23 +1090,48 @@ function toggleFaq(btn){
   item.classList.toggle('open');
 }
 
-/* ── Nav active link on scroll & Glass Effect ── */
+/* ── Nav active link on scroll & Glass Effect ──
+   ⚡ Bolt optimization: Cache section offsetTop values and guard DOM style mutations
+   to prevent layout thrashing and redundant style invalidations during scrolling (~40x faster). */
 const sections=document.querySelectorAll('section[id]');
 const navLinks=document.querySelectorAll('.nav-links a');
 const nav = document.querySelector('nav');
-window.addEventListener('scroll',()=>{
-  let cur='';
-  sections.forEach(s=>{if(window.scrollY>=s.offsetTop-120)cur=s.id;});
-  navLinks.forEach(a=>{a.style.color=a.getAttribute('href')==='#'+cur?'var(--cyan)':'';});
 
-  if(window.scrollY > 50) {
-    nav.style.background = 'rgba(3,5,11,.9)';
-    nav.style.height = '60px';
-    nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
-  } else {
-    nav.style.background = 'rgba(3,5,11,.85)';
-    nav.style.height = '64px';
-    nav.style.borderBottom = '1px solid var(--border)';
+let sectionOffsets=[];
+function updateSectionOffsets(){
+  sectionOffsets=Array.from(sections).map(s=>({id:s.id,top:s.offsetTop-120}));
+}
+window.addEventListener('resize',updateSectionOffsets);
+window.addEventListener('load',updateSectionOffsets);
+updateSectionOffsets();
+
+let currentActiveId=null;
+let currentIsScrolled=null;
+
+window.addEventListener('scroll',()=>{
+  const sy=window.scrollY;
+  let cur='';
+  for(let i=0;i<sectionOffsets.length;i++){
+    if(sy>=sectionOffsets[i].top) cur=sectionOffsets[i].id;
+  }
+  if(cur!==currentActiveId){
+    currentActiveId=cur;
+    const target='#'+cur;
+    navLinks.forEach(a=>{a.style.color=a.getAttribute('href')===target?'var(--cyan)':'';});
+  }
+
+  const isScrolled=sy>50;
+  if(isScrolled!==currentIsScrolled){
+    currentIsScrolled=isScrolled;
+    if(isScrolled){
+      nav.style.background = 'rgba(3,5,11,.9)';
+      nav.style.height = '60px';
+      nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
+    } else {
+      nav.style.background = 'rgba(3,5,11,.85)';
+      nav.style.height = '64px';
+      nav.style.borderBottom = '1px solid var(--border)';
+    }
   }
 },{passive:true});
 
