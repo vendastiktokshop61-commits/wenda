@@ -1091,24 +1091,48 @@ function toggleFaq(btn){
 }
 
 /* ── Nav active link on scroll & Glass Effect ── */
-const sections=document.querySelectorAll('section[id]');
-const navLinks=document.querySelectorAll('.nav-links a');
+/* Bolt Optimization: Cache section offsets and guard DOM mutations to prevent layout thrashing */
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('.nav-links a');
 const nav = document.querySelector('nav');
-window.addEventListener('scroll',()=>{
-  let cur='';
-  sections.forEach(s=>{if(window.scrollY>=s.offsetTop-120)cur=s.id;});
-  navLinks.forEach(a=>{a.style.color=a.getAttribute('href')==='#'+cur?'var(--cyan)':'';});
+let sectionTops = [];
+function updateSectionOffsets() {
+  sectionTops = Array.from(sections).map(s => ({ id: s.id, top: s.offsetTop - 120 }));
+}
+updateSectionOffsets();
+window.addEventListener('resize', updateSectionOffsets, { passive: true });
 
-  if(window.scrollY > 50) {
-    nav.style.background = 'rgba(3,5,11,.9)';
-    nav.style.height = '60px';
-    nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
-  } else {
-    nav.style.background = 'rgba(3,5,11,.85)';
-    nav.style.height = '64px';
-    nav.style.borderBottom = '1px solid var(--border)';
+let currentActiveNavId = null;
+let isScrolledPast50 = null;
+
+window.addEventListener('scroll', () => {
+  const scrollY = window.scrollY;
+  let cur = '';
+  for (let i = 0; i < sectionTops.length; i++) {
+    if (scrollY >= sectionTops[i].top) cur = sectionTops[i].id;
   }
-},{passive:true});
+
+  if (cur !== currentActiveNavId) {
+    currentActiveNavId = cur;
+    navLinks.forEach(a => {
+      a.style.color = a.getAttribute('href') === '#' + cur ? 'var(--cyan)' : '';
+    });
+  }
+
+  const past50 = scrollY > 50;
+  if (past50 !== isScrolledPast50) {
+    isScrolledPast50 = past50;
+    if (past50) {
+      nav.style.background = 'rgba(3,5,11,.9)';
+      nav.style.height = '60px';
+      nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
+    } else {
+      nav.style.background = 'rgba(3,5,11,.85)';
+      nav.style.height = '64px';
+      nav.style.borderBottom = '1px solid var(--border)';
+    }
+  }
+}, { passive: true });
 
 /* ── Smooth close mobile on link ── */
 document.querySelectorAll('.mobile-menu a[href^="#"]').forEach(a=>{
