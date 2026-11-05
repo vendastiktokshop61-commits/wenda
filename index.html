@@ -1090,25 +1090,58 @@ function toggleFaq(btn){
   item.classList.toggle('open');
 }
 
-/* ── Nav active link on scroll & Glass Effect ── */
-const sections=document.querySelectorAll('section[id]');
-const navLinks=document.querySelectorAll('.nav-links a');
+/* ── Nav active link on scroll & Glass Effect (optimized) ── */
+// Performance optimization: Cache section offsets on resize and guard DOM mutations
+// to eliminate layout thrashing (repeated offsetTop queries) and redundant style writes during scroll.
+const rawSections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('.nav-links a');
 const nav = document.querySelector('nav');
-window.addEventListener('scroll',()=>{
-  let cur='';
-  sections.forEach(s=>{if(window.scrollY>=s.offsetTop-120)cur=s.id;});
-  navLinks.forEach(a=>{a.style.color=a.getAttribute('href')==='#'+cur?'var(--cyan)':'';});
 
-  if(window.scrollY > 50) {
-    nav.style.background = 'rgba(3,5,11,.9)';
-    nav.style.height = '60px';
-    nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
-  } else {
-    nav.style.background = 'rgba(3,5,11,.85)';
-    nav.style.height = '64px';
-    nav.style.borderBottom = '1px solid var(--border)';
+let sectionOffsets = [];
+function updateSectionOffsets() {
+  sectionOffsets = Array.from(rawSections).map(s => ({ id: s.id, top: s.offsetTop - 120 }));
+}
+window.addEventListener('resize', updateSectionOffsets);
+updateSectionOffsets();
+
+let activeSectionId = null;
+let isNavScrolled = null;
+
+window.addEventListener('scroll', () => {
+  const scrollY = window.scrollY;
+
+  // Determine active section from cached offset positions
+  let cur = '';
+  for (let i = sectionOffsets.length - 1; i >= 0; i--) {
+    if (scrollY >= sectionOffsets[i].top) {
+      cur = sectionOffsets[i].id;
+      break;
+    }
   }
-},{passive:true});
+
+  // Guard DOM mutation: only update link colors when active section changes
+  if (cur !== activeSectionId) {
+    activeSectionId = cur;
+    navLinks.forEach(a => {
+      a.style.color = a.getAttribute('href') === '#' + cur ? 'var(--cyan)' : '';
+    });
+  }
+
+  // Guard DOM mutation: only update nav styles when crossing scroll threshold
+  const scrolled = scrollY > 50;
+  if (scrolled !== isNavScrolled) {
+    isNavScrolled = scrolled;
+    if (scrolled) {
+      nav.style.background = 'rgba(3,5,11,.9)';
+      nav.style.height = '60px';
+      nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
+    } else {
+      nav.style.background = 'rgba(3,5,11,.85)';
+      nav.style.height = '64px';
+      nav.style.borderBottom = '1px solid var(--border)';
+    }
+  }
+}, { passive: true });
 
 /* ── Smooth close mobile on link ── */
 document.querySelectorAll('.mobile-menu a[href^="#"]').forEach(a=>{
