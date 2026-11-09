@@ -1090,23 +1090,53 @@ function toggleFaq(btn){
   item.classList.toggle('open');
 }
 
-/* ── Nav active link on scroll & Glass Effect ── */
+/* ── Nav active link on scroll & Glass Effect ──
+   ⚡ Bolt Performance Optimization:
+   - Cache section offsetTop values to avoid forced reflow / layout thrashing on every scroll event.
+   - Track state changes (lastCur, lastScrolled) to eliminate redundant DOM style writes during scroll.
+   - Recalculate section positions on resize and load to preserve dynamic responsiveness.
+*/
 const sections=document.querySelectorAll('section[id]');
 const navLinks=document.querySelectorAll('.nav-links a');
 const nav = document.querySelector('nav');
-window.addEventListener('scroll',()=>{
-  let cur='';
-  sections.forEach(s=>{if(window.scrollY>=s.offsetTop-120)cur=s.id;});
-  navLinks.forEach(a=>{a.style.color=a.getAttribute('href')==='#'+cur?'var(--cyan)':'';});
 
-  if(window.scrollY > 50) {
-    nav.style.background = 'rgba(3,5,11,.9)';
-    nav.style.height = '60px';
-    nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
-  } else {
-    nav.style.background = 'rgba(3,5,11,.85)';
-    nav.style.height = '64px';
-    nav.style.borderBottom = '1px solid var(--border)';
+let cachedSectionOffsets = [];
+function updateSectionOffsets() {
+  cachedSectionOffsets = Array.from(sections).map(s => ({ id: s.id, top: s.offsetTop }));
+}
+updateSectionOffsets();
+window.addEventListener('resize', updateSectionOffsets, { passive: true });
+window.addEventListener('load', updateSectionOffsets, { passive: true });
+
+let lastActiveSectionId = null;
+let lastScrolledState = null;
+
+window.addEventListener('scroll',()=>{
+  const scrollY = window.scrollY;
+  let cur = '';
+  for (let i = 0; i < cachedSectionOffsets.length; i++) {
+    if (scrollY >= cachedSectionOffsets[i].top - 120) cur = cachedSectionOffsets[i].id;
+  }
+
+  if (cur !== lastActiveSectionId) {
+    lastActiveSectionId = cur;
+    navLinks.forEach(a => {
+      a.style.color = a.getAttribute('href') === '#' + cur ? 'var(--cyan)' : '';
+    });
+  }
+
+  const isScrolled = scrollY > 50;
+  if (isScrolled !== lastScrolledState) {
+    lastScrolledState = isScrolled;
+    if (isScrolled) {
+      nav.style.background = 'rgba(3,5,11,.9)';
+      nav.style.height = '60px';
+      nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
+    } else {
+      nav.style.background = 'rgba(3,5,11,.85)';
+      nav.style.height = '64px';
+      nav.style.borderBottom = '1px solid var(--border)';
+    }
   }
 },{passive:true});
 
