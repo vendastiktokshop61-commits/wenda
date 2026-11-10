@@ -1090,25 +1090,56 @@ function toggleFaq(btn){
   item.classList.toggle('open');
 }
 
-/* ── Nav active link on scroll & Glass Effect ── */
-const sections=document.querySelectorAll('section[id]');
-const navLinks=document.querySelectorAll('.nav-links a');
+/* ── Nav active link on scroll & Glass Effect (optimized) ── */
+// Cache DOM elements and layout measurements (offsets) to prevent layout thrashing
+// and state-guard DOM style updates so mutations only occur when values actually change.
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('.nav-links a');
 const nav = document.querySelector('nav');
-window.addEventListener('scroll',()=>{
-  let cur='';
-  sections.forEach(s=>{if(window.scrollY>=s.offsetTop-120)cur=s.id;});
-  navLinks.forEach(a=>{a.style.color=a.getAttribute('href')==='#'+cur?'var(--cyan)':'';});
 
-  if(window.scrollY > 50) {
-    nav.style.background = 'rgba(3,5,11,.9)';
-    nav.style.height = '60px';
-    nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
-  } else {
-    nav.style.background = 'rgba(3,5,11,.85)';
-    nav.style.height = '64px';
-    nav.style.borderBottom = '1px solid var(--border)';
+let sectionOffsets = [];
+function updateSectionOffsets() {
+  sectionOffsets = Array.from(sections).map(s => ({ id: s.id, top: s.offsetTop - 120 }));
+}
+window.addEventListener('resize', updateSectionOffsets, { passive: true });
+window.addEventListener('load', updateSectionOffsets, { passive: true });
+updateSectionOffsets();
+
+let currentActiveNav = null;
+let isNavScrolled = null;
+
+window.addEventListener('scroll', () => {
+  const scrollY = window.scrollY;
+
+  // Determine active section using cached offsets
+  let cur = '';
+  for (let i = 0; i < sectionOffsets.length; i++) {
+    if (scrollY >= sectionOffsets[i].top) cur = sectionOffsets[i].id;
   }
-},{passive:true});
+
+  // Only update nav link inline styles when active section changes
+  if (cur !== currentActiveNav) {
+    currentActiveNav = cur;
+    navLinks.forEach(a => {
+      a.style.color = a.getAttribute('href') === '#' + cur ? 'var(--cyan)' : '';
+    });
+  }
+
+  // Only update navbar styles when threshold state changes
+  const shouldBeScrolled = scrollY > 50;
+  if (shouldBeScrolled !== isNavScrolled) {
+    isNavScrolled = shouldBeScrolled;
+    if (isNavScrolled) {
+      nav.style.background = 'rgba(3,5,11,.9)';
+      nav.style.height = '60px';
+      nav.style.borderBottom = '1px solid rgba(255,255,255,.1)';
+    } else {
+      nav.style.background = 'rgba(3,5,11,.85)';
+      nav.style.height = '64px';
+      nav.style.borderBottom = '1px solid var(--border)';
+    }
+  }
+}, { passive: true });
 
 /* ── Smooth close mobile on link ── */
 document.querySelectorAll('.mobile-menu a[href^="#"]').forEach(a=>{
